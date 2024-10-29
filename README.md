@@ -37,3 +37,9 @@ Log Generator는 채팅로그를 HTML 포맷으로 변환하는 GUI 애플리케
 
 ## 문의
 문제가 발생하거나 문의사항이 있으시면 Issues 페이지에 남겨주세요.
+
+
+## License
+
+This project is licensed under the terms of the GNU General Public License v3.0. See the [LICENSE](./LICENSE) file for details.
+
