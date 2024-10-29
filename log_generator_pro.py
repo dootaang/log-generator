@@ -3166,8 +3166,8 @@ class ModernLogGenerator(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet(self.get_scrollbar_style())
-        scroll.setMinimumHeight(200)  # 최소 높이 설정
-        scroll.setMaximumHeight(400)  # 최대 높이 설정
+        scroll.setMinimumHeight(300)  # 최소 높이 설정
+        scroll.setMaximumHeight(600)  # 최대 높이 설정
         
         # 스크롤 내용물을 담을 위젯
         scroll_content = QWidget()
@@ -3185,10 +3185,62 @@ class ModernLogGenerator(QMainWindow):
         self.open_assets_btn.setEnabled(False)
         upload_layout.addWidget(self.open_assets_btn)
         content_layout.addLayout(upload_layout)
+
+        # 상태 표시를 업로드 버튼 바로 아래에 배치
+        self.asset_status = QLabel()
+        self.asset_status.setStyleSheet(f"color: {STYLES['text_secondary']};")
+        self.asset_status.setWordWrap(True)
+        content_layout.addWidget(self.asset_status)
         
-        # 이미지 URL 매핑 관리 버튼들
-        mapping_buttons = self.create_mapping_buttons()
-        content_layout.addWidget(mapping_buttons)
+        # 구분선 추가
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet(f"background-color: {STYLES['border']};")
+        content_layout.addWidget(line)
+        
+        # 모든 버튼을 담을 컨테이너
+        buttons_container = QWidget()
+        buttons_layout = QVBoxLayout(buttons_container)
+        buttons_layout.setSpacing(STYLES['spacing_small'])
+        
+        # 매핑 관리 버튼들을 수평으로 배치
+        mapping_buttons = QWidget()
+        mapping_layout = QHBoxLayout(mapping_buttons)
+        mapping_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 매핑 저장 버튼
+        save_btn = ModernButton("매핑 저장")
+        save_btn.clicked.connect(lambda: self.mapping_manager.save_mapping_set_dialog())
+        mapping_layout.addWidget(save_btn)
+        
+        # 매핑 불러오기 버튼
+        load_btn = ModernButton("매핑 불러오기")
+        load_btn.clicked.connect(lambda: self.mapping_manager.load_mapping_set_dialog())
+        mapping_layout.addWidget(load_btn)
+        
+        # 매핑 삭제 버튼
+        delete_btn = ModernButton("매핑 삭제")
+        delete_btn.clicked.connect(lambda: self.mapping_manager.delete_mapping_set_dialog())
+        mapping_layout.addWidget(delete_btn)
+
+        # 매핑 초기화 버튼
+        reset_btn = ModernButton("매핑 초기화")
+        reset_btn.clicked.connect(self.reset_mappings)
+        mapping_layout.addWidget(reset_btn)
+        
+        buttons_layout.addWidget(mapping_buttons)
+        
+        # URL 일괄 입력 버튼 (매핑 버튼들 아래에 배치)
+        bulk_input_btn = ModernButton("URL 일괄 입력")
+        bulk_input_btn.clicked.connect(lambda: self.create_bulk_url_input_dialog().exec())
+        buttons_layout.addWidget(bulk_input_btn)
+        
+        # URL 항목 추가 버튼 (일괄 입력 버튼 아래에 배치)
+        add_btn = ModernButton("+ URL 항목 추가")
+        add_btn.clicked.connect(self.add_image_url_entry)
+        buttons_layout.addWidget(add_btn)
+        
+        content_layout.addWidget(buttons_container)
         
         # 이미지 URL 매핑 컨테이너
         self.image_url_container = QWidget()
@@ -3200,22 +3252,6 @@ class ModernLogGenerator(QMainWindow):
             self.add_image_url_entry()
         
         content_layout.addWidget(self.image_url_container)
-        
-        # 항목 추가 버튼
-        add_btn = ModernButton("+ URL 항목 추가")
-        add_btn.clicked.connect(self.add_image_url_entry)
-        content_layout.addWidget(add_btn)
-        
-        # URL 일괄 입력 버튼
-        bulk_input_btn = ModernButton("URL 일괄 입력")
-        bulk_input_btn.clicked.connect(lambda: self.create_bulk_url_input_dialog().exec())
-        content_layout.addWidget(bulk_input_btn)
-        
-        # 상태 표시
-        self.asset_status = QLabel()
-        self.asset_status.setStyleSheet(f"color: {STYLES['text_secondary']};")
-        self.asset_status.setWordWrap(True)
-        content_layout.addWidget(self.asset_status)
         
         # 스트레치 추가하여 내용물을 위로 정렬
         content_layout.addStretch()
