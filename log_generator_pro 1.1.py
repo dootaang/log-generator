@@ -922,7 +922,8 @@ class TextSettingsManager:
             self.main_window.use_text_size.setChecked(settings['use_text_size'])
             self.main_window.text_size.setValue(settings['text_size'])
             self.main_window.use_text_indent.setChecked(settings['use_text_indent'])
-
+            self.main_window.dialog_newline.setChecked(settings.get('dialog_newline', True))
+            
             # UI 상태 업데이트
             self.main_window.update_text_size_state()
             self.main_window.update_indent_state()
