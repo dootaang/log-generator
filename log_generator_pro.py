@@ -1,271 +1,738 @@
-/* 
- * This file is part of <LogGenerator Pro>.
- * 
- * <LogGenerator Pro> is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-import re
-import sys
-import os
-import contextlib
-import json
 import base64
-import struct
-import zipfile
-import shutil
+import contextlib
 import glob
-from PyQt6.QtWidgets import QFileDialog
-from PyQt6.QtCore import QSettings
+import json
+import os
+import re
+import shutil
+import struct
+import sys
+import traceback
+import gc
+from collections import OrderedDict
+from datetime import datetime
+from enum import Enum
 from io import BytesIO
-from datetime import datetime  # 날짜/시간 처리용
-from PyQt6.QtCore import QTimer  # 타이머 기능용
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                           QHBoxLayout, QTextEdit, QLabel, QPushButton,
-                           QColorDialog, QLineEdit, QCheckBox, QSpinBox,
-                           QTabWidget, QScrollArea, QComboBox, QFrame,
-                           QGridLayout, QFileDialog, QSplitter, QGroupBox,
-                           QListWidget, QListWidgetItem)  # QListWidgetItem 추가
-from PyQt6.QtGui import QFont, QClipboard, QColor, QPalette, QIcon
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QTabWidget
-from PyQt6.QtWidgets import (QInputDialog, QMessageBox, QMenu)
-from PyQt6.QtCore import QStandardPaths
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
-from PyQt6.QtWidgets import QSlider
+from time import time
+
+# PyQt6 관련
+from PyQt6.QtCore import (
+    QSettings,
+    QSize,
+    QStandardPaths,
+    Qt,
+    QTimer,
+    pyqtSignal
+)
+from PyQt6.QtGui import (
+    QClipboard,
+    QColor,
+    QCursor,
+    QFont,
+    QIcon,
+    QPalette
+)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QColorDialog,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSlider,
+    QSpinBox,
+    QSplitter,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget
+)
+
+# 추가 라이브러리
+import zipfile
+
+
+
+class CacheManager:
+    def __init__(self, max_size=100, max_age=3600):  # 기본 1시간 캐시
+        self.max_size = max_size
+        self.max_age = max_age
+        self.cache = OrderedDict()
+        self.timestamps = {}
+        self.templates = TEMPLATE_PRESETS.copy()
+        
+    def get(self, key):
+        """캐시에서 값 가져오기"""
+        try:
+            if key in self.cache:
+                # 만료 확인
+                if time() - self.timestamps[key] > self.max_age:
+                    self.remove(key)
+                    return None
+                    
+                # LRU 업데이트
+                self.cache.move_to_end(key)
+                return self.cache[key]
+            return None
+            
+        except Exception as e:
+            print(f"캐시 조회 중 오류: {str(e)}")
+            return None
+            
+    def set(self, key, value):
+        """캐시에 값 저장"""
+        try:
+            # 용량 초과 시 가장 오래된 항목 제거
+            if len(self.cache) >= self.max_size:
+                oldest_key = next(iter(self.cache))
+                self.remove(oldest_key)
+                
+            self.cache[key] = value
+            self.timestamps[key] = time()
+            self.cache.move_to_end(key)
+            
+        except Exception as e:
+            print(f"캐시 저장 중 오류: {str(e)}")
+            
+    def remove(self, key):
+        """캐시에서 항목 제거"""
+        try:
+            if key in self.cache:
+                del self.cache[key]
+                del self.timestamps[key]
+                
+        except Exception as e:
+            print(f"캐시 항목 제거 중 오류: {str(e)}")
+            
+    def clear(self):
+        """캐시 전체 초기화"""
+        try:
+            self.cache.clear()
+            self.timestamps.clear()
+            
+        except Exception as e:
+            print(f"캐시 초기화 중 오류: {str(e)}")
+            
+    def cleanup_expired(self):
+        """만료된 캐시 항목 정리"""
+        try:
+            current_time = time()
+            expired_keys = [
+                key for key, timestamp in self.timestamps.items()
+                if current_time - timestamp > self.max_age
+            ]
+            
+            for key in expired_keys:
+                self.remove(key)
+                
+            return len(expired_keys)
+            
+        except Exception as e:
+            print(f"만료 캐시 정리 중 오류: {str(e)}")
+            return 0
+            
+    def get_stats(self):
+        """캐시 상태 통계"""
+        try:
+            return {
+                'total_items': len(self.cache),
+                'max_size': self.max_size,
+                'current_size': len(self.cache),
+                'utilization': f"{(len(self.cache) / self.max_size * 100):.1f}%",
+                'oldest_item_age': time() - min(self.timestamps.values()) if self.timestamps else 0,
+                'newest_item_age': time() - max(self.timestamps.values()) if self.timestamps else 0
+            }
+            
+        except Exception as e:
+            print(f"통계 수집 중 오류: {str(e)}")
+            return {}
+
+class ImageCacheManager(CacheManager):
+    """이미지 전용 캐시 매니저"""
+    def __init__(self, max_size=50, max_age=3600*24, max_total_size_mb=100):
+        super().__init__(max_size, max_age)
+        self.total_size = 0  # 바이트 단위
+        self.max_total_size = max_total_size_mb * 1024 * 1024  # MB를 바이트로 변환
+        
+    def set(self, key, image_data):
+        """이미지 데이터 캐시 저장"""
+        if not image_data:
+            return
+            
+        try:
+            data_size = len(image_data)
+            
+            # 새 데이터가 최대 크기를 초과하는 경우
+            if data_size > self.max_total_size:
+                raise ValueError("이미지가 최대 허용 크기를 초과합니다")
+            
+            # 공간 확보
+            self._ensure_space_available(data_size)
+            
+            # 새 항목 추가
+            super().set(key, image_data)
+            self.total_size += data_size
+            
+        except Exception as e:
+            logger.error(f"이미지 캐시 저장 중 오류: {str(e)}")
+            raise
+            
+    def _ensure_space_available(self, required_size):
+        """필요한 공간을 확보하기 위해 오래된 항목들을 제거"""
+        while self.cache and self.total_size + required_size > self.max_total_size:
+            oldest_key = min(self.cache.keys(), key=lambda k: self.cache[k].timestamp)
+            self.remove(oldest_key)
+            
+    def remove(self, key):
+        """이미지 캐시 항목 제거"""
+        try:
+            if key in self.cache:
+                self.total_size -= len(self.cache[key].data)
+                super().remove(key)
+                
+        except Exception as e:
+            logger.error(f"이미지 캐시 제거 중 오류: {str(e)}")
+            
+    def cleanup_expired(self):
+        """만료된 캐시 항목 정리"""
+        try:
+            cleaned_count = 0
+            current_time = time.time()
+            
+            # 만료된 항목들을 찾아서 제거
+            expired_keys = [
+                key for key, item in self.cache.items()
+                if current_time - item.timestamp > self.max_age
+            ]
+            
+            for key in expired_keys:
+                self.remove(key)
+                cleaned_count += 1
+                
+            if cleaned_count > 0:
+                logger.info(f"캐시 정리 완료: {cleaned_count}개 항목 제거")
+                logger.debug(f"현재 캐시 상태: {self.get_stats()}")
+                
+            return cleaned_count
+            
+        except Exception as e:
+            logger.error(f"캐시 정리 중 오류: {str(e)}")
+            return 0
+            
+    def get_stats(self):
+        """이미지 캐시 상태 통계"""
+        try:
+            stats = super().get_stats()
+            current_time = time.time()
+            
+            # 기존 통계에 이미지 관련 정보 추가
+            image_stats = {
+                'total_size_mb': f"{self.total_size / 1024 / 1024:.2f}MB",
+                'max_size_mb': f"{self.max_total_size / 1024 / 1024:.2f}MB",
+                'size_utilization': f"{(self.total_size / self.max_total_size * 100):.1f}%",
+                'items_age_stats': {
+                    'min': min((current_time - item.timestamp for item in self.cache.values()), default=0),
+                    'max': max((current_time - item.timestamp for item in self.cache.values()), default=0),
+                    'avg': sum((current_time - item.timestamp for item in self.cache.values()), default=0) / len(self.cache) if self.cache else 0
+                }
+            }
+            
+            stats.update(image_stats)
+            return stats
+            
+        except Exception as e:
+            logger.error(f"이미지 캐시 통계 수집 중 오류: {str(e)}")
+            return {}            
+
+
+class ErrorSeverity(Enum):
+    LOW = "낮음"
+    MEDIUM = "중간"
+    HIGH = "높음"
+    CRITICAL = "심각"
+
+class ErrorHandler:
+    def __init__(self, main_window):
+        self.main_window = main_window
+        self.log_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
+        os.makedirs(self.log_dir, exist_ok=True)
+        
+    def handle_error(self, error_msg, severity=ErrorSeverity.MEDIUM, exception=None):
+        """향상된 에러 처리 및 사용자 안내"""
+        try:
+            # 1. 에러 로깅
+            self.log_error(error_msg, severity, exception)
+            
+            # 2. 심각도에 따른 처리
+            if severity == ErrorSeverity.LOW:
+                # 상태바에 간단한 알림 표시
+                self.main_window.statusBar().showMessage(f"알림: {error_msg}", 5000)
+                
+            elif severity == ErrorSeverity.MEDIUM:
+                # 경고 대화상자와 해결 방법 제시
+                QMessageBox.warning(
+                    self.main_window,
+                    '경고',
+                    f"{error_msg}\n\n"
+                    f"문제 해결 방법:\n"
+                    f"1. 프로그램을 다시 시작해보세요.\n"
+                    f"2. 임시 파일을 정리해보세요.\n"
+                    f"3. 설정을 초기화해보세요.\n"
+                    f"4. 문제가 지속되면 로그를 확인해주세요."
+                )
+                
+            elif severity == ErrorSeverity.HIGH:
+                # 심각한 오류 알림과 저장 권장
+                QMessageBox.critical(
+                    self.main_window,
+                    '심각한 오류',
+                    f"심각한 오류가 발생했습니다:\n{error_msg}\n\n"
+                    f"작업 내용을 저장하고 프로그램을 다시 시작하는 것을 권장합니다.\n"
+                    f"로그 파일에 자세한 오류 정보가 기록되었습니다."
+                )
+                
+            elif severity == ErrorSeverity.CRITICAL:
+                # 치명적 오류 시 강제 저장 및 종료 제안
+                reply = QMessageBox.critical(
+                    self.main_window,
+                    '치명적 오류',
+                    f"치명적인 오류가 발생했습니다:\n{error_msg}\n\n"
+                    f"프로그램을 안전하게 종료하시겠습니까?\n"
+                    f"현재 작업이 자동으로 저장됩니다.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    try:
+                        # 작업 내용 자동 저장 시도
+                        if hasattr(self.main_window, 'save_settings'):
+                            self.main_window.save_settings()
+                        # 리소스 정리
+                        if hasattr(self.main_window, 'resource_manager'):
+                            self.main_window.resource_manager.cleanup()
+                        self.main_window.close()
+                    except Exception as e:
+                        QMessageBox.critical(
+                            self.main_window,
+                            '긴급 종료',
+                            f"자동 저장 중 추가 오류가 발생했습니다.\n"
+                            f"프로그램을 즉시 종료합니다.\n"
+                            f"오류: {str(e)}"
+                        )
+                        self.main_window.close()
+                        
+        except Exception as e:
+            # 에러 핸들러 자체의 오류 처리
+            print(f"Error handler failed: {str(e)}")
+            QMessageBox.critical(
+                self.main_window,
+                '시스템 오류',
+                '오류 처리 중 추가 문제가 발생했습니다.\n'
+                '프로그램을 재시작해주세요.\n'
+                f'상세 오류: {str(e)}'
+            )
+    
+    def log_error(self, error_msg, severity, exception=None):
+        """상세한 에러 로깅"""
+        try:
+            log_file = os.path.join(self.log_dir, 'error.log')
+            with open(log_file, 'a', encoding='utf-8') as f:
+                # 타임스탬프와 기본 정보 기록
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                f.write(f"\n[{timestamp}] {severity.value} - {error_msg}\n")
+                
+                # 예외 정보가 있으면 상세 정보 기록
+                if exception:
+                    f.write(f"Exception type: {type(exception).__name__}\n")
+                    f.write(f"Exception message: {str(exception)}\n")
+                    f.write("Traceback:\n")
+                    f.write(traceback.format_exc())
+                
+                # 시스템 정보 기록
+                f.write("\nSystem Info:\n")
+                f.write(f"OS: {sys.platform}\n")
+                f.write(f"Python version: {sys.version}\n")
+                
+                f.write("-" * 80 + "\n")
+                
+        except Exception as e:
+            print(f"로그 기록 실패: {str(e)}")
+
+
+class ResourceManager:
+    def __init__(self, main_window):
+        self.main_window = main_window
+        self.resources = []
+        self.cleanup_handlers = []
+        
+        
+    def register_resource(self, resource, cleanup_handler=None):
+        """리소스 등록"""
+        self.resources.append(resource)
+        if cleanup_handler:
+            self.cleanup_handlers.append(cleanup_handler)
+            
+    def cleanup(self):
+        """리소스 정리"""
+        try:
+            # 1. 먼저 타이머 정리
+            if hasattr(self.main_window, 'preview_timer'):
+                self.main_window.preview_timer.stop()
+                self.main_window.preview_timer.deleteLater()
+                
+            if hasattr(self.main_window, 'auto_save_timer'):
+                self.main_window.auto_save_timer.stop()
+                self.main_window.auto_save_timer.deleteLater()
+            
+            # 2. 설정 저장
+            if hasattr(self.main_window, 'text_settings_manager'):
+                self.main_window.text_settings_manager.save_settings()
+                
+            if hasattr(self.main_window, 'preset_manager'):
+                self.main_window.preset_manager.save_presets()
+            
+            # 3. 캐시 정리
+            if hasattr(self.main_window, 'image_cache'):
+                self.main_window.image_cache.save_mappings()
+            
+            # 4. 임시 파일 정리
+            if hasattr(self.main_window, 'card_handler'):
+                self.main_window.card_handler.cleanup()
+            
+            # 5. 등록된 리소스 정리
+            for resource, handler in zip(self.resources, self.cleanup_handlers):
+                if handler:
+                    try:
+                        handler(resource)
+                    except Exception as e:
+                        print(f"리소스 정리 중 오류 발생: {str(e)}")
+            
+            # 6. 위젯 정리
+            for widget in self.main_window.findChildren(QWidget):
+                try:
+                    widget.deleteLater()
+                except Exception as e:
+                    print(f"위젯 정리 중 오류 발생: {str(e)}")
+                    
+            return True
+            
+        except Exception as e:
+            print(f"리소스 정리 중 오류 발생: {str(e)}")
+            return False
 
 
 class TemplateManager:
     def __init__(self, main_window):
-        self.main_window = main_window
-        self.current_template = None
-        self.settings = QSettings('YourCompany', 'LogGenerator')
+       self.main_window = main_window
+       self.current_template = None
 
+       self.templates = {
+           "커스텀": {
+               "name": "커스텀",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#ffffff",
+                       "inner_box": "#f8f9fa",
+                       "background": "#f8f9fa",
+                       "bot_name": "#4a4a4a",
+                       "dialog": "#2d3748",
+                       "narration": "#4a5568",
+                       "inner_thoughts": "#718096",
+                       "profile_border": "#e2e8f0",
+                       "box_border": "#e2e8f0",
+                       "image_border": "#e2e8f0",
+                       "divider_outer": "#e2e8f0",
+                       "divider_inner": "#ffffff",
+                       "gradient_start": "#f8f9fa",
+                       "gradient_end": "#ffffff"
+                   },
+                   "tags": [
+                       {"color": "#edf2f7", "text_color": "#2d3748", "border_color": "#e2e8f0"},
+                       {"color": "#e2e8f0", "text_color": "#2d3748", "border_color": "#cbd5e0"},
+                       {"color": "#cbd5e0", "text_color": "#2d3748", "border_color": "#a0aec0"}
+                   ]
+               }
+           },
+           "모던 블루": {
+               "name": "모던 블루",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#1a202c",
+                       "inner_box": "#2d3748",
+                       "background": "#2d3748",
+                       "bot_name": "#90cdf4",
+                       "dialog": "#f7fafc",
+                       "narration": "#e2e8f0",
+                       "inner_thoughts": "#cbd5e0",
+                       "profile_border": "#4a5568",
+                       "box_border": "#4a5568",
+                       "image_border": "#4a5568",
+                       "divider_outer": "#4a5568",
+                       "divider_inner": "#2d3748",
+                       "gradient_start": "#1a202c",
+                       "gradient_end": "#2d3748"
+                   },
+                   "tags": [
+                       {"color": "#2c5282", "text_color": "#bee3f8", "border_color": "#2b6cb0"},
+                       {"color": "#2b6cb0", "text_color": "#bee3f8", "border_color": "#3182ce"},
+                       {"color": "#3182ce", "text_color": "#ffffff", "border_color": "#4299e1"}
+                   ]
+               }
+           },
+           "다크 모드": {
+               "name": "다크 모드",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#000000",
+                       "inner_box": "#1a1a1a",
+                       "background": "#1a1a1a",
+                       "bot_name": "#ffffff",
+                       "dialog": "#ffffff",
+                       "narration": "#e0e0e0",
+                       "inner_thoughts": "#c0c0c0",
+                       "profile_border": "#333333",
+                       "box_border": "#333333",
+                       "image_border": "#333333",
+                       "divider_outer": "#333333",
+                       "divider_inner": "#1a1a1a",
+                       "gradient_start": "#000000",
+                       "gradient_end": "#1a1a1a"
+                   },
+                   "tags": [
+                       {"color": "#262626", "text_color": "#e0e0e0", "border_color": "#333333"},
+                       {"color": "#333333", "text_color": "#e0e0e0", "border_color": "#404040"},
+                       {"color": "#404040", "text_color": "#ffffff", "border_color": "#4d4d4d"}
+                   ]
+               }
+           },
+           "로즈 골드": {
+               "name": "로즈 골드",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#ffffff",
+                       "inner_box": "#fff5f5",
+                       "background": "#fff5f5",
+                       "bot_name": "#c53030",
+                       "dialog": "#2d3748",
+                       "narration": "#4a5568",
+                       "inner_thoughts": "#718096",
+                       "profile_border": "#feb2b2",
+                       "box_border": "#fc8181",
+                       "image_border": "#feb2b2",
+                       "divider_outer": "#fc8181",
+                       "divider_inner": "#ffffff",
+                       "gradient_start": "#fff5f5",
+                       "gradient_end": "#fed7d7"
+                   },
+                   "tags": [
+                       {"color": "#fed7d7", "text_color": "#c53030", "border_color": "#feb2b2"},
+                       {"color": "#feb2b2", "text_color": "#c53030", "border_color": "#fc8181"},
+                       {"color": "#fc8181", "text_color": "#ffffff", "border_color": "#f56565"}
+                   ]
+               }
+           },
+           "민트 그린": {
+               "name": "민트 그린",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#ffffff",
+                       "inner_box": "#f0fff4",
+                       "background": "#f0fff4",
+                       "bot_name": "#2f855a",
+                       "dialog": "#2d3748",
+                       "narration": "#4a5568",
+                       "inner_thoughts": "#718096",
+                       "profile_border": "#9ae6b4",
+                       "box_border": "#68d391",
+                       "image_border": "#9ae6b4",
+                       "divider_outer": "#68d391",
+                       "divider_inner": "#ffffff",
+                       "gradient_start": "#f0fff4",
+                       "gradient_end": "#c6f6d5"
+                   },
+                   "tags": [
+                       {"color": "#c6f6d5", "text_color": "#2f855a", "border_color": "#9ae6b4"},
+                       {"color": "#9ae6b4", "text_color": "#2f855a", "border_color": "#68d391"},
+                       {"color": "#68d391", "text_color": "#ffffff", "border_color": "#48bb78"}
+                   ]
+               }
+           },
+           "모던 퍼플": {
+               "name": "모던 퍼플",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#ffffff",
+                       "inner_box": "#f8f5ff",
+                       "background": "#f8f5ff",
+                       "bot_name": "#6b46c1",
+                       "dialog": "#2d3748",
+                       "narration": "#4a5568",
+                       "inner_thoughts": "#718096",
+                       "profile_border": "#d6bcfa",
+                       "box_border": "#b794f4",
+                       "image_border": "#d6bcfa",
+                       "divider_outer": "#b794f4",
+                       "divider_inner": "#ffffff",
+                       "gradient_start": "#f8f5ff",
+                       "gradient_end": "#e9d8fd"
+                   },
+                   "tags": [
+                       {"color": "#e9d8fd", "text_color": "#6b46c1", "border_color": "#d6bcfa"},
+                       {"color": "#d6bcfa", "text_color": "#6b46c1", "border_color": "#b794f4"},
+                       {"color": "#b794f4", "text_color": "#ffffff", "border_color": "#9f7aea"}
+                   ]
+               }
+           },
+           "오션 블루": {
+               "name": "오션 블루",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#ffffff",
+                       "inner_box": "#ebf8ff",
+                       "background": "#ebf8ff",
+                       "bot_name": "#2c5282",
+                       "dialog": "#2d3748",
+                       "narration": "#4a5568",
+                       "inner_thoughts": "#718096",
+                       "profile_border": "#90cdf4",
+                       "box_border": "#63b3ed",
+                       "image_border": "#90cdf4",
+                       "divider_outer": "#63b3ed",
+                       "divider_inner": "#ffffff",
+                       "gradient_start": "#ebf8ff",
+                       "gradient_end": "#bee3f8"
+                   },
+                   "tags": [
+                       {"color": "#bee3f8", "text_color": "#2c5282", "border_color": "#90cdf4"},
+                       {"color": "#90cdf4", "text_color": "#2c5282", "border_color": "#63b3ed"},
+                       {"color": "#63b3ed", "text_color": "#ffffff", "border_color": "#4299e1"}
+                   ]
+               }
+           },
+           "선셋 오렌지": {
+               "name": "선셋 오렌지",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#ffffff",
+                       "inner_box": "#fffaf0",
+                       "background": "#fffaf0",
+                       "bot_name": "#c05621",
+                       "dialog": "#2d3748",
+                       "narration": "#4a5568",
+                       "inner_thoughts": "#718096",
+                       "profile_border": "#fbd38d",
+                       "box_border": "#f6ad55",
+                       "image_border": "#fbd38d",
+                       "divider_outer": "#f6ad55",
+                       "divider_inner": "#ffffff",
+                       "gradient_start": "#fffaf0",
+                       "gradient_end": "#feebc8"
+                   },
+                   "tags": [
+                       {"color": "#feebc8", "text_color": "#c05621", "border_color": "#fbd38d"},
+                       {"color": "#fbd38d", "text_color": "#c05621", "border_color": "#f6ad55"},
+                       {"color": "#f6ad55", "text_color": "#ffffff", "border_color": "#ed8936"}
+                   ]
+               }
+           },
+           "모카 브라운": {
+               "name": "모카 브라운",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#ffffff",
+                       "inner_box": "#faf5f1",
+                       "background": "#faf5f1",
+                       "bot_name": "#7b341e",
+                       "dialog": "#2d3748",
+                       "narration": "#4a5568",
+                       "inner_thoughts": "#718096",
+                       "profile_border": "#d6bcab",
+                       "box_border": "#b08b6e",
+                       "image_border": "#d6bcab",
+                       "divider_outer": "#b08b6e",
+                       "divider_inner": "#ffffff",
+                       "gradient_start": "#faf5f1",
+                       "gradient_end": "#e8d6cf"
+                   },
+                   "tags": [
+                       {"color": "#e8d6cf", "text_color": "#7b341e", "border_color": "#d6bcab"},
+                       {"color": "#d6bcab", "text_color": "#7b341e", "border_color": "#b08b6e"},
+                       {"color": "#b08b6e", "text_color": "#ffffff", "border_color": "#966251"}
+                   ]
+               }
+           },
+           "스페이스 그레이": {
+               "name": "스페이스 그레이",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#1a1a1a",
+                       "inner_box": "#2d2d2d",
+                       "background": "#2d2d2d",
+                       "bot_name": "#e2e2e2",
+                       "dialog": "#ffffff",
+                       "narration": "#d1d1d1",
+                       "inner_thoughts": "#b0b0b0",
+                       "profile_border": "#404040",
+                       "box_border": "#404040",
+                       "image_border": "#404040",
+                       "divider_outer": "#404040",
+                       "divider_inner": "#2d2d2d",
+                       "gradient_start": "#1a1a1a",
+                       "gradient_end": "#2d2d2d"
+                   },
+                   "tags": [
+                       {"color": "#404040", "text_color": "#e2e2e2", "border_color": "#4a4a4a"},
+                       {"color": "#4a4a4a", "text_color": "#e2e2e2", "border_color": "#525252"},
+                       {"color": "#525252", "text_color": "#ffffff", "border_color": "#5a5a5a"}
+                   ]
+               }
+           },
+           "그라데이션 모던": {
+               "name": "그라데이션 모던",
+               "theme": {
+                   "colors": {
+                       "outer_box": "#fafafa",
+                       "inner_box": "#fafafa",
+                       "background": "#fafafa",
+                       "bot_name": "#494949",
+                       "dialog": "#494949",
+                       "narration": "#666666",
+                       "inner_thoughts": "#808080",
+                       "profile_border": "#e3e3e3",
+                       "box_border": "#e9e9e9",
+                       "image_border": "#e3e3e3",
+                       "divider_outer": "#e9e9e9",
+                       "divider_inner": "#e9e9e9",
+                       "gradient_start": "#D9D782",
+                       "gradient_end": "#A9B9D9",
+                       "tag_bg": "#494949",
+                       "tag_text": "#d5d5d5"
+                   },
+                   "tags": [
+                       {"color": "#494949", "text_color": "#d5d5d5", "border_color": "#5a5a5a"},
+                       {"color": "#494949", "text_color": "#d5d5d5", "border_color": "#5a5a5a"},
+                       {"color": "#494949", "text_color": "#d5d5d5", "border_color": "#5a5a5a"}
+                   ]
+               }
+           }
+       }
 
-
-        # 이 templates 정의를 그대로 사용
-        self.templates = {
-            "커스텀": {
-                "name": "커스텀",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#ffffff",
-                        "inner_box": "#f8f9fa",
-                        "background": "#f8f9fa",
-                        "bot_name": "#4a4a4a",
-                        "dialog": "#4a4a4a",
-                        "narration": "#4a4a4a",
-                        "profile_border": "#ffffff",
-                        "divider_outer": "#b8bacf",
-                        "divider_inner": "#ffffff",
-                    },
-                    "tags": [
-                        {"color": "#E3E3E8", "text_color": "#000000"},
-                        {"color": "#E3E3E8", "text_color": "#000000"},
-                        {"color": "#E3E3E8", "text_color": "#000000"}
-                    ]
-                }
-            },
-            "모던 블루": {
-                "name": "모던 블루",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#1a202c",
-                        "inner_box": "#2d3748",
-                        "background": "#2d3748",
-                        "bot_name": "#90cdf4",
-                        "dialog": "#e2e8f0",
-                        "narration": "#cbd5e0",
-                        "profile_border": "#4a5568",
-                        "divider_outer": "#4a5568",
-                        "divider_inner": "#2d3748",
-                    },
-                    "tags": [
-                        {"color": "#2d3748", "text_color": "#ffffff"},
-                        {"color": "#2d3748", "text_color": "#ffffff"},
-                        {"color": "#2d3748", "text_color": "#ffffff"}
-                    ]
-                }
-            },
-            "다크 모드": {
-                "name": "다크 모드",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#000000",
-                        "inner_box": "#0a0a0a",
-                        "background": "#0a0a0a",
-                        "bot_name": "#ffffff",
-                        "dialog": "#ffffff",
-                        "narration": "#e0e0e0",
-                        "profile_border": "#333333",
-                        "divider_outer": "#333333",
-                        "divider_inner": "#0a0a0a",
-                    },
-                    "tags": [
-                        {"color": "#1a1a1a", "text_color": "#ffffff"},
-                        {"color": "#262626", "text_color": "#ffffff"},
-                        {"color": "#333333", "text_color": "#ffffff"}
-                    ]
-                }
-            },
-            "로즈 골드": {
-                "name": "로즈 골드",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#ffffff",
-                        "inner_box": "#fff5f5",
-                        "background": "#fff1f1",
-                        "bot_name": "#c53030",
-                        "dialog": "#2d3748",
-                        "narration": "#4a5568",
-                        "profile_border": "#feb2b2",
-                        "divider_outer": "#fc8181",
-                        "divider_inner": "#ffffff",
-                    },
-                    "tags": [
-                        {"color": "#fed7d7", "text_color": "#c53030"},
-                        {"color": "#feb2b2", "text_color": "#c53030"},
-                        {"color": "#fc8181", "text_color": "#ffffff"}
-                    ]
-                }
-            },
-            "민트 그린": {
-                "name": "민트 그린",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#ffffff",
-                        "inner_box": "#f0fff4",
-                        "background": "#e7faea",
-                        "bot_name": "#2f855a",
-                        "dialog": "#2d3748",
-                        "narration": "#4a5568",
-                        "profile_border": "#9ae6b4",
-                        "divider_outer": "#48bb78",
-                        "divider_inner": "#ffffff",
-                    },
-                    "tags": [
-                        {"color": "#c6f6d5", "text_color": "#2f855a"},
-                        {"color": "#9ae6b4", "text_color": "#2f855a"},
-                        {"color": "#68d391", "text_color": "#ffffff"}
-                    ]
-                }
-            },
-            "모던 퍼플": {
-                "name": "모던 퍼플",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#ffffff",
-                        "inner_box": "#f8f5ff",
-                        "background": "#f5f0ff",
-                        "bot_name": "#6b46c1",
-                        "dialog": "#4a5568",
-                        "narration": "#718096",
-                        "profile_border": "#9f7aea",
-                        "divider_outer": "#9f7aea",
-                        "divider_inner": "#ffffff",
-                    },
-                    "tags": [
-                        {"color": "#e9d8fd", "text_color": "#6b46c1"},
-                        {"color": "#d6bcfa", "text_color": "#6b46c1"},
-                        {"color": "#b794f4", "text_color": "#ffffff"}
-                    ]
-                }
-            },
-            "오션 블루": {  # 새로 추가
-                "name": "오션 블루",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#ffffff",
-                        "inner_box": "#ebf8ff",
-                        "background": "#e6f6ff",
-                        "bot_name": "#2c5282",
-                        "dialog": "#2d3748",
-                        "narration": "#4a5568",
-                        "profile_border": "#63b3ed",
-                        "divider_outer": "#4299e1",
-                        "divider_inner": "#ffffff",
-                    },
-                    "tags": [
-                        {"color": "#bee3f8", "text_color": "#2c5282"},
-                        {"color": "#90cdf4", "text_color": "#2c5282"},
-                        {"color": "#63b3ed", "text_color": "#ffffff"}
-                    ]
-                }
-            },
-            "선셋 오렌지": {  # 새로 추가
-                "name": "선셋 오렌지",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#ffffff",
-                        "inner_box": "#fffaf0",
-                        "background": "#fff5eb",
-                        "bot_name": "#c05621",
-                        "dialog": "#2d3748",
-                        "narration": "#4a5568",
-                        "profile_border": "#fbd38d",
-                        "divider_outer": "#ed8936",
-                        "divider_inner": "#ffffff",
-                    },
-                    "tags": [
-                        {"color": "#feebc8", "text_color": "#c05621"},
-                        {"color": "#fbd38d", "text_color": "#c05621"},
-                        {"color": "#f6ad55", "text_color": "#ffffff"}
-                    ]
-                }
-            },
-            "모카 브라운": {  # 새로 추가
-                "name": "모카 브라운",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#ffffff",
-                        "inner_box": "#faf5f1",
-                        "background": "#f7f0ec",
-                        "bot_name": "#7b341e",
-                        "dialog": "#2d3748",
-                        "narration": "#4a5568",
-                        "profile_border": "#d6bcab",
-                        "divider_outer": "#b08b6e",
-                        "divider_inner": "#ffffff",
-                    },
-                    "tags": [
-                        {"color": "#e8d6cf", "text_color": "#7b341e"},
-                        {"color": "#d6bcab", "text_color": "#7b341e"},
-                        {"color": "#b08b6e", "text_color": "#ffffff"}
-                    ]
-                }
-            },
-            "스페이스 그레이": {  # 새로 추가
-                "name": "스페이스 그레이",
-                "theme": {
-                    "colors": {
-                        "outer_box": "#1a1a1a",
-                        "inner_box": "#2d2d2d",
-                        "background": "#262626",
-                        "bot_name": "#e2e2e2",
-                        "dialog": "#ffffff",
-                        "narration": "#d1d1d1",
-                        "profile_border": "#404040",
-                        "divider_outer": "#404040",
-                        "divider_inner": "#2d2d2d",
-                    },
-                    "tags": [
-                        {"color": "#404040", "text_color": "#ffffff"},
-                        {"color": "#4a4a4a", "text_color": "#ffffff"},
-                        {"color": "#525252", "text_color": "#ffffff"}
-                    ]
-                }
-            }
-        }
 
     def get_template_names(self):
         """템플릿 이름 목록 반환"""
@@ -300,17 +767,34 @@ class TemplateManager:
             self.main_window.divider_outer_color.setColor(template["divider_outer"])
             self.main_window.divider_inner_color.setColor(template["divider_inner"])
             
-            # 태그 색상 적용
-            tag_colors = self.templates[template_name]["theme"]["tags"]
-            for i, tag_data in enumerate(tag_colors):
+            # 새로 추가된 색상 설정 적용
+            if hasattr(self.main_window, 'inner_thoughts_color'):
+                self.main_window.inner_thoughts_color.setColor(template["inner_thoughts"])
+            if hasattr(self.main_window, 'box_border_color'):
+                self.main_window.box_border_color.setColor(template["box_border"])
+            if hasattr(self.main_window, 'image_border_color'):
+                self.main_window.image_border_color.setColor(template["image_border"])
+
+            # 태그 색상 및 스타일 적용
+            tags = self.templates[template_name]["theme"]["tags"]
+            for i, tag_data in enumerate(tags):
                 if i < len(self.main_window.tag_colors):
                     self.main_window.tag_colors[i].setColor(tag_data["color"])
 
-            # 미리보기 업데이트
+                    # 태그 입력 위젯이 있는 경우 추가 스타일 적용
+                    tag_entries = self.main_window.findChildren(TagEntry)
+                    if i < len(tag_entries):
+                        tag_entries[i].text_color_btn.setColor(tag_data["text_color"])
+                        if "border_color" in tag_data:
+                            tag_entries[i].border_color = tag_data["border_color"]
+                        if "hover_color" in tag_data:
+                            tag_entries[i].hover_color = tag_data["hover_color"]
+
+            # 메인 윈도우의 미리보기 업데이트
             self.main_window.update_preview()
             
             return True
-            
+
         except Exception as e:
             print(f"템플릿 적용 중 오류: {str(e)}")
             import traceback
@@ -322,80 +806,495 @@ class TemplateManager:
         return STYLES['shadow_intensity']
 
 
-    def save_current_template(self):
-        """현재 설정을 템플릿으로 저장"""
-        name, ok = QInputDialog.getText(
-            self.main_window,
-            '템플릿 저장',
-            '새 템플릿 이름을 입력하세요:'
+class TextSettingsManager:
+    def __init__(self, main_window):
+        self.main_window = main_window
+        self.settings_file = os.path.join(
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation),
+            'text_settings.json'
         )
-        
-        if ok and name:
-            # 기본 템플릿은 덮어쓸 수 없음
-            default_templates = {"커스텀", "모던 블루", "다크 모드", "로즈 골드", 
-                            "민트 그린", "모던 퍼플", "오션 블루", "선셋 오렌지", 
-                            "모카 브라운", "스페이스 그레이"}
-            
-            if name in default_templates:
-                QMessageBox.warning(
-                    self.main_window,
-                    '저장 불가',
-                    '기본 제공되는 템플릿은 수정할 수 없습니다.'
-                )
-                return
+        os.makedirs(os.path.dirname(self.settings_file), exist_ok=True)
+        self.settings = {}
+        self.load_settings()
 
-            # 이미 존재하는 템플릿인 경우 확인
-            if name in self.templates:
+    def load_settings(self):
+        """저장된 텍스트 설정 불러오기"""
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, 'r', encoding='utf-8') as f:
+                    self.settings = json.load(f)
+        except Exception as e:
+            print(f"텍스트 설정 로드 중 오류 발생: {e}")
+            self.settings = {}
+
+    def save_settings(self):
+        """텍스트 설정을 파일에 저장"""
+        try:
+            with open(self.settings_file, 'w', encoding='utf-8') as f:
+                json.dump(self.settings, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            QMessageBox.warning(
+                self.main_window,
+                '오류',
+                f'텍스트 설정 저장 중 오류가 발생했습니다: {str(e)}'
+            )
+
+    def save_current_settings(self):
+        """현재 텍스트 설정을 저장"""
+        name, ok = QInputDialog.getText(
+            self.main_window, '텍스트 설정 저장', '설정 이름을 입력하세요:'
+        )
+        if ok and name:
+            if name in self.settings:
                 reply = QMessageBox.question(
-                    self.main_window,
-                    '템플릿 덮어쓰기',
-                    f'"{name}" 템플릿이 이미 존재합니다. 덮어쓰시겠습니까?',
+                    self.main_window, '설정 덮어쓰기',
+                    f'"{name}" 설정이 이미 존재합니다. 덮어쓰시겠습니까?',
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
                 if reply == QMessageBox.StandardButton.No:
                     return
-
             try:
-                # 현재 설정 저장
-                new_template = {
-                    "name": name,
-                    "theme": {
-                        "colors": {
-                            "outer_box": self.main_window.outer_box_color.get_color(),
-                            "inner_box": self.main_window.inner_box_color.get_color(),
-                            "background": self.main_window.inner_box_color.get_color(),
-                            "bot_name": self.main_window.bot_name_color.get_color(),
-                            "dialog": self.main_window.dialog_color.get_color(),
-                            "narration": self.main_window.narration_color.get_color(),
-                            "profile_border": self.main_window.profile_border_color.get_color(),
-                            "divider_outer": self.main_window.divider_outer_color.get_color(),
-                            "divider_inner": self.main_window.divider_inner_color.get_color(),
-                        },
-                        "tags": [
-                            {"color": color.get_color(), "text_color": "#000000"}
-                            for color in self.main_window.tag_colors
-                        ]
-                    }
+                # 현재 설정 수집
+                current_settings = {
+                    'text_indent': self.main_window.text_indent.value(),
+                    'dialog_color': self.main_window.dialog_color.get_color(),
+                    'narration_color': self.main_window.narration_color.get_color(),
+                    'inner_thoughts_color': self.main_window.inner_thoughts_color.get_color(),  # 추가
+                    'dialog_bold': self.main_window.dialog_bold.isChecked(),
+                    'inner_thoughts_bold': self.main_window.inner_thoughts_bold.isChecked(),  # 추가
+                    'dialog_newline': self.main_window.dialog_newline.isChecked(),
+                    'remove_asterisk': self.main_window.remove_asterisk.isChecked(),
+                    'convert_ellipsis': self.main_window.convert_ellipsis.isChecked(),
+                    'use_text_size': self.main_window.use_text_size.isChecked(),
+                    'text_size': self.main_window.text_size.value(),
+                    'use_text_indent': self.main_window.use_text_indent.isChecked()
                 }
-
-                self.templates[name] = new_template
-                
-                # 콤보박스 업데이트
-                self.main_window.template_combo.clear()
-                self.main_window.template_combo.addItems(self.get_template_names())
-                
+                self.settings[name] = current_settings
+                self.save_settings()
                 QMessageBox.information(
-                    self.main_window,
-                    '저장 완료',
-                    f'템플릿 "{name}"이(가) 저장되었습니다.'
+                    self.main_window, '저장 완료',
+                    f'텍스트 설정 "{name}"이(가) 저장되었습니다.'
                 )
-
             except Exception as e:
                 QMessageBox.warning(
-                    self.main_window,
-                    '오류',
-                    f'템플릿 저장 중 오류가 발생했습니다: {str(e)}'
+                    self.main_window, '오류',
+                    f'설정 저장 중 오류가 발생했습니다: {str(e)}'
                 )
+
+    def load_settings_by_name(self, name):
+        """저장된 텍스트 설정 불러오기"""
+        try:
+            if name not in self.settings:
+                QMessageBox.warning(
+                    self.main_window, '오류',
+                    f'설정 "{name}"을(를) 찾을 수 없습니다.'
+                )
+                return False
+
+            settings = self.settings[name]
+            
+            # 설정 적용
+            self.main_window.text_indent.setValue(settings['text_indent'])
+            self.main_window.dialog_color.setColor(settings['dialog_color'])
+            self.main_window.narration_color.setColor(settings['narration_color'])
+            self.main_window.inner_thoughts_color.setColor(settings.get('inner_thoughts_color', '#718096'))  # 기본값 추가
+            self.main_window.dialog_bold.setChecked(settings['dialog_bold'])
+            self.main_window.inner_thoughts_bold.setChecked(settings.get('inner_thoughts_bold', False))  # 기본값 추가
+            self.main_window.remove_asterisk.setChecked(settings['remove_asterisk'])
+            self.main_window.convert_ellipsis.setChecked(settings['convert_ellipsis'])
+            self.main_window.use_text_size.setChecked(settings['use_text_size'])
+            self.main_window.text_size.setValue(settings['text_size'])
+            self.main_window.use_text_indent.setChecked(settings['use_text_indent'])
+
+            # UI 상태 업데이트
+            self.main_window.update_text_size_state()
+            self.main_window.update_indent_state()
+            self.main_window.update_preview()
+
+            QMessageBox.information(
+                self.main_window, '불러오기 완료',
+                f'텍스트 설정 "{name}"이(가) 적용되었습니다.'
+            )
+            return True
+
+        except Exception as e:
+            QMessageBox.warning(
+                self.main_window, '오류',
+                f'설정을 불러오는 중 오류가 발생했습니다: {str(e)}'
+            )
+            return False
+
+    def delete_settings(self, name):
+        """저장된 텍스트 설정 삭제"""
+        try:
+            if name in self.settings:
+                reply = QMessageBox.question(
+                    self.main_window,
+                    '설정 삭제',
+                    f'"{name}" 설정을 삭제하시겠습니까?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    del self.settings[name]
+                    self.save_settings()
+                    QMessageBox.information(
+                        self.main_window,
+                        '삭제 완료',
+                        f'텍스트 설정 "{name}"이(가) 삭제되었습니다.'
+                    )
+                    return True
+        except Exception as e:
+            QMessageBox.warning(
+                self.main_window,
+                '오류',
+                f'설정 삭제 중 오류가 발생했습니다: {str(e)}'
+            )
+        return False
+
+
+class ProfileManager:
+    def __init__(self, main_window):
+        self.main_window = main_window
+        self.profiles_file = os.path.join(
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation),
+            'profile_sets'
+        )
+        os.makedirs(os.path.dirname(self.profiles_file), exist_ok=True)
+
+    def save_profile_set(self, name):
+        """현재 프로필 설정을 저장"""
+        try:
+            # 프로필 데이터 수집
+            profile_data = {
+                'bot_name': self.main_window.bot_name.text(),
+                'bot_name_color': self.main_window.bot_name_color.get_color(),
+                'show_profile': self.main_window.show_profile.isChecked(),
+                'show_profile_image': self.main_window.show_profile_image.isChecked(),
+                'show_bot_name': self.main_window.show_bot_name.isChecked(),
+                'show_tags': self.main_window.show_tags.isChecked(),
+                'show_divider': self.main_window.show_divider.isChecked(),
+                'frame_style': self.main_window.frame_style.currentText(),
+                'image_url': self.main_window.image_url.text(),
+                'profile_border_color': self.main_window.profile_border_color.get_color(),
+                'show_profile_border': self.main_window.show_profile_border.isChecked(),
+                'show_profile_shadow': self.main_window.show_profile_shadow.isChecked(),
+                'width': self.main_window.width_input.value(),
+                'height': self.main_window.height_input.value(),
+                'divider_style': self.main_window.divider_style.currentText(),
+                'divider_thickness': self.main_window.divider_thickness.value(),
+                'divider_outer_color': self.main_window.divider_outer_color.get_color(),
+                'divider_inner_color': self.main_window.divider_inner_color.get_color(),
+                'divider_solid_color': self.main_window.divider_solid_color.get_color()
+            }
+            
+            # 프로필 세트 저장
+            file_path = f"{self.profiles_file}_{name}.json"
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(profile_data, f, ensure_ascii=False, indent=2)
+            return True, f"프로필 세트 '{name}'이(가) 저장되었습니다."
+        except Exception as e:
+            return False, f"프로필 저장 중 오류 발생: {str(e)}"
+
+    def load_profile_set(self, name):
+        """저장된 프로필 세트 불러오기"""
+        try:
+            file_path = f"{self.profiles_file}_{name}.json"
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"프로필 파일을 찾을 수 없습니다: {name}")
+                
+            with open(file_path, 'r', encoding='utf-8') as f:
+                profile_data = json.load(f)
+                
+            # 기존 프로필 데이터 로드
+            self.main_window.bot_name.setText(profile_data.get('bot_name', ''))
+            self.main_window.bot_name_color.setColor(profile_data.get('bot_name_color', '#4a4a4a'))
+            self.main_window.show_profile.setChecked(profile_data.get('show_profile', True))
+            self.main_window.show_profile_image.setChecked(profile_data.get('show_profile_image', True))
+            self.main_window.show_bot_name.setChecked(profile_data.get('show_bot_name', True))
+            self.main_window.show_tags.setChecked(profile_data.get('show_tags', True))
+            self.main_window.show_divider.setChecked(profile_data.get('show_divider', True))
+            self.main_window.frame_style.setCurrentText(profile_data.get('frame_style', '동그라미'))
+            self.main_window.image_url.setText(profile_data.get('image_url', ''))
+            self.main_window.profile_border_color.setColor(profile_data.get('profile_border_color', '#ffffff'))
+            self.main_window.show_profile_border.setChecked(profile_data.get('show_profile_border', True))
+            self.main_window.show_profile_shadow.setChecked(profile_data.get('show_profile_shadow', True))
+            self.main_window.width_input.setValue(profile_data.get('width', 80))
+            self.main_window.height_input.setValue(profile_data.get('height', 80))
+
+            # 구분선 설정 로드
+            self.main_window.divider_style.setCurrentText(profile_data.get('divider_style', '그라데이션'))
+            self.main_window.divider_thickness.setValue(profile_data.get('divider_thickness', 1))
+            self.main_window.divider_outer_color.setColor(profile_data.get('divider_outer_color', STYLES['divider_outer_color']))
+            self.main_window.divider_inner_color.setColor(profile_data.get('divider_inner_color', STYLES['divider_inner_color']))
+            self.main_window.divider_solid_color.setColor(profile_data.get('divider_solid_color', STYLES['divider_outer_color']))
+
+            # UI 상태 업데이트
+            self.main_window.update_profile_element_states()
+            self.main_window.update_size_inputs(self.main_window.frame_style.currentText())
+            self.main_window.update_profile_style_states()
+            self.main_window.toggle_divider_color_settings(self.main_window.divider_style.currentText())
+            self.main_window.update_preview()
+            
+            return True, f"프로필 세트 '{name}'을(를) 불러왔습니다."
+            
+        except Exception as e:
+            return False, f"프로필 불러오기 중 오류 발생: {str(e)}"
+
+
+    def delete_profile_set(self, name):
+        """저장된 프로필 세트 삭제"""
+        try:
+            file_path = f"{self.profiles_file}_{name}.json"
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"프로필 파일을 찾을 수 없습니다: {name}")
+
+            os.remove(file_path)
+            return True, f"프로필 세트 '{name}'이(가) 삭제되었습니다."
+        except Exception as e:
+            return False, f"프로필 삭제 중 오류 발생: {str(e)}"
+
+    def get_available_profile_sets(self):
+        """저장된 프로필 세트 목록 반환"""
+        try:
+            profile_files = glob.glob(f"{self.profiles_file}_*.json")
+            return [os.path.basename(f)[len(os.path.basename(self.profiles_file)) + 1:-5] 
+                   for f in profile_files]
+        except Exception:
+            return []
+    
+    def save_profile_set_dialog(self):
+        """프로필 세트 저장 다이얼로그"""
+        name, ok = QInputDialog.getText(
+            self.main_window, '프로필 세트 저장', '저장할 프로필 세트의 이름을 입력하세요:'
+        )
+        if ok and name:
+            # 중복 확인
+            if f"{self.profiles_file}_{name}.json" in glob.glob(f"{self.profiles_file}_*.json"):
+                reply = QMessageBox.question(
+                    self.main_window,
+                    '프로필 덮어쓰기',
+                    f'"{name}" 프로필이 이미 존재합니다. 덮어쓰시겠습니까?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.No:
+                    return
+            
+            success, message = self.save_profile_set(name)
+            QMessageBox.information(self.main_window, "프로필 저장", message)
+
+    def load_profile_set_dialog(self):
+        """프로필 세트 불러오기 다이얼로그"""
+        available_sets = self.get_available_profile_sets()
+        if not available_sets:
+            QMessageBox.information(self.main_window, "프로필 불러오기", "저장된 프로필 세트가 없습니다.")
+            return
+        
+        name, ok = QInputDialog.getItem(
+            self.main_window,
+            "프로필 불러오기",
+            "불러올 프로필 세트를 선택하세요:",
+            available_sets,
+            0,
+            False
+        )
+        
+        if ok and name:
+            success, message = self.load_profile_set(name)
+            QMessageBox.information(self.main_window, "프로필 불러오기", message)
+
+    def delete_profile_set_dialog(self):
+        """프로필 세트 삭제 다이얼로그"""
+        available_sets = self.get_available_profile_sets()
+        if not available_sets:
+            QMessageBox.information(self.main_window, "프로필 삭제", "저장된 프로필 세트가 없습니다.")
+            return
+        
+        name, ok = QInputDialog.getItem(
+            self.main_window,
+            "프로필 삭제",
+            "삭제할 프로필 세트를 선택하세요:",
+            available_sets,
+            0,
+            False
+        )
+        
+        if ok and name:
+            reply = QMessageBox.question(
+                self.main_window,
+                "프로필 삭제 확인",
+                f"프로필 세트 '{name}'을(를) 정말 삭제하시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                success, message = self.delete_profile_set(name)
+                QMessageBox.information(self.main_window, "프로필 삭제", message)
+
+
+class WordReplaceManager:
+    def __init__(self, main_window):
+        self.main_window = main_window
+        self.word_sets_file = os.path.join(
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation),
+            'word_replace_sets'
+        )
+        os.makedirs(os.path.dirname(self.word_sets_file), exist_ok=True)
+
+    def save_word_set(self, name):
+        """현재 단어 변경 설정을 저장"""
+        try:
+            # 단어 변경 데이터 수집
+            word_pairs = []
+            for entry in self.main_window.word_replace_container.findChildren(WordReplaceEntry):
+                from_word = entry.from_word.text().strip()
+                to_word = entry.to_word.text().strip()
+                if from_word or to_word:  # 둘 중 하나라도 있으면 저장
+                    word_pairs.append({
+                        'from': from_word,
+                        'to': to_word
+                    })
+
+            if not word_pairs:
+                raise ValueError("저장할 단어 변경 설정이 없습니다.")
+
+            # 단어 변경 세트 저장
+            file_path = f"{self.word_sets_file}_{name}.json"
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(word_pairs, f, ensure_ascii=False, indent=2)
+
+            return True, f"단어 변경 세트 '{name}'이(가) 저장되었습니다."
+            
+        except Exception as e:
+            return False, f"단어 변경 세트 저장 중 오류 발생: {str(e)}"
+
+    def load_word_set(self, name):
+        """저장된 단어 변경 세트 불러오기"""
+        try:
+            file_path = f"{self.word_sets_file}_{name}.json"
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"단어 변경 세트 파일을 찾을 수 없습니다: {name}")
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                word_pairs = json.load(f)
+
+            # 기존 항목 제거
+            for i in reversed(range(self.main_window.word_replace_layout.count())):
+                widget = self.main_window.word_replace_layout.itemAt(i).widget()
+                if widget:
+                    widget.deleteLater()
+
+            # 새 항목 추가
+            for pair in word_pairs:
+                entry = WordReplaceEntry(self.main_window.word_replace_container)
+                entry.from_word.setText(pair.get('from', ''))
+                entry.to_word.setText(pair.get('to', ''))
+                self.main_window.word_replace_layout.addWidget(entry)
+
+            return True, f"단어 변경 세트 '{name}'을(를) 불러왔습니다."
+        except Exception as e:
+            return False, f"단어 변경 세트 불러오기 중 오류 발생: {str(e)}"
+
+    def delete_word_set(self, name):
+        """저장된 단어 변경 세트 삭제"""
+        try:
+            file_path = f"{self.word_sets_file}_{name}.json"
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"단어 변경 세트 파일을 찾을 수 없습니다: {name}")
+
+            os.remove(file_path)
+            return True, f"단어 변경 세트 '{name}'이(가) 삭제되었습니다."
+        except Exception as e:
+            return False, f"단어 변경 세트 삭제 중 오류 발생: {str(e)}"
+
+    def get_available_word_sets(self):
+        """저장된 단어 변경 세트 목록 반환"""
+        try:
+            word_files = glob.glob(f"{self.word_sets_file}_*.json")
+            return [os.path.basename(f)[len(os.path.basename(self.word_sets_file)) + 1:-5] 
+                   for f in word_files]
+        except Exception:
+            return []
+    
+    def save_word_set_dialog(self):
+        """단어 변경 세트 저장 다이얼로그"""
+        name, ok = QInputDialog.getText(
+            self.main_window, '단어 변경 세트 저장', '저장할 단어 변경 세트의 이름을 입력하세요:'
+        )
+        if ok and name:
+            # 중복 확인
+            word_set_file = f"{self.word_sets_file}_{name}.json"
+            if os.path.exists(word_set_file):
+                reply = QMessageBox.question(
+                    self.main_window,
+                    '단어 변경 덮어쓰기',
+                    f'"{name}" 단어 변경 세트가 이미 존재합니다. 덮어쓰시겠습니까?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.No:
+                    return
+                    
+            success, message = self.save_word_set(name)
+            QMessageBox.information(self.main_window, "단어 변경 저장", message)
+
+    def load_word_set_dialog(self):
+        """단어 변경 세트 불러오기 다이얼로그"""
+        available_sets = self.get_available_word_sets()
+        if not available_sets:
+            QMessageBox.information(
+                self.main_window, 
+                "단어 변경 세트 불러오기", 
+                "저장된 단어 변경 세트가 없습니다."
+            )
+            return
+        
+        name, ok = QInputDialog.getItem(
+            self.main_window,
+            "단어 변경 세트 불러오기",
+            "불러올 단어 변경 세트를 선택하세요:",
+            available_sets,
+            0,
+            False
+        )
+        
+        if ok and name:
+            success, message = self.load_word_set(name)
+            QMessageBox.information(self.main_window, "단어 변경 세트 불러오기", message)
+
+    def delete_word_set_dialog(self):
+        """단어 변경 세트 삭제 다이얼로그"""
+        available_sets = self.get_available_word_sets()
+        if not available_sets:
+            QMessageBox.information(
+                self.main_window, 
+                "단어 변경 세트 삭제", 
+                "저장된 단어 변경 세트가 없습니다."
+            )
+            return
+        
+        name, ok = QInputDialog.getItem(
+            self.main_window,
+            "단어 변경 세트 삭제",
+            "삭제할 단어 변경 세트를 선택하세요:",
+            available_sets,
+            0,
+            False
+        )
+        
+        if ok and name:
+            reply = QMessageBox.question(
+                self.main_window,
+                "단어 변경 세트 삭제 확인",
+                f"단어 변경 세트 '{name}'을(를) 정말 삭제하시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                success, message = self.delete_word_set(name)
+                QMessageBox.information(self.main_window, "단어 변경 세트 삭제", message)
+
+
+
 class ImageCache:
     def __init__(self):
         self.cache_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.CacheLocation)
@@ -504,12 +1403,21 @@ class MappingManager:
     def save_mapping_set_dialog(self):
         """매핑 세트 저장 다이얼로그"""
         name, ok = QInputDialog.getText(
-            self.parent,
-            '매핑 세트 저장',
-            '저장할 매핑 세트의 이름을 입력하세요:'
+            self.parent, '매핑 세트 저장', '저장할 매핑 세트의 이름을 입력하세요:'
         )
-        
         if ok and name:
+            # 중복 확인
+            mapping_file = f"{self.mappings_file}_{name}.json"
+            if os.path.exists(mapping_file):
+                reply = QMessageBox.question(
+                    self.parent,
+                    '매핑 덮어쓰기',
+                    f'"{name}" 매핑 세트가 이미 존재합니다. 덮어쓰시겠습니까?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.No:
+                    return
+                    
             success, message = self.save_mapping_set(name)
             QMessageBox.information(self.parent, "매핑 저장", message)
 
@@ -896,7 +1804,7 @@ class PresetManager:
         # 프리셋 파일 경로 설정
         self.presets_file = os.path.join(
             QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation),
-            'presets.json'
+            'color_presets.json'
         )
         # 디렉토리 생성
         os.makedirs(os.path.dirname(self.presets_file), exist_ok=True)
@@ -926,7 +1834,7 @@ class PresetManager:
             )
 
     def save_current_settings(self):
-        """현재 설정을 프리셋으로 저장"""
+        """현재 색상 설정을 프리셋으로 저장"""
         name, ok = QInputDialog.getText(
             self.main_window,
             '프리셋 저장',
@@ -945,84 +1853,32 @@ class PresetManager:
                     return
 
             try:
-                settings = {
-                    'template': {
-                        'show_inner_box': self.main_window.show_inner_box.isChecked(),
-                        'outer_box_color': self.main_window.outer_box_color.get_color(),
-                        'inner_box_color': self.main_window.inner_box_color.get_color(),
-                        'shadow_intensity': self.main_window.shadow_intensity.value()
-                    },
-                    'profile': {
-                        'show_profile': self.main_window.show_profile.isChecked(),
-                        'show_profile_image': self.main_window.show_profile_image.isChecked(),
-                        'show_bot_name': self.main_window.show_bot_name.isChecked(),
-                        'show_tags': self.main_window.show_tags.isChecked(),
-                        'show_divider': self.main_window.show_divider.isChecked(),
-                        'frame_style': self.main_window.frame_style.currentText(),
-                        'width': self.main_window.width_input.value(),
-                        'height': self.main_window.height_input.value(),
-                        'image_url': self.main_window.image_url.text(),
-                        'profile_border_color': self.main_window.profile_border_color.get_color(),
-                        # 새로 추가된 프로필 설정
-                        'show_profile_border': self.main_window.show_profile_border.isChecked(),
-                        'show_profile_shadow': self.main_window.show_profile_shadow.isChecked()
-                    },
-                    'bot': {
-                        'name': self.main_window.bot_name.text(),
-                        'name_color': self.main_window.bot_name_color.get_color()
-                    },
-                    'tags': [
-                        {
-                            'text': box.text(),
-                            'color': self.main_window.tag_colors[i].get_color(),
-                            'transparent': self.main_window.tag_transparent[i].isChecked()  # 투명 설정 추가
-                        }
-                        for i, box in enumerate(self.main_window.tag_boxes)
-                    ],
-                    'divider': {
-                        'style': self.main_window.divider_style.currentText(),
-                        'thickness': self.main_window.divider_thickness.value(),
-                        'outer_color': self.main_window.divider_outer_color.get_color(),
-                        'inner_color': self.main_window.divider_inner_color.get_color(),
-                        'solid_color': self.main_window.divider_solid_color.get_color()
-                    },
-                    'text': {
-                        'indent': self.main_window.text_indent.value(),
-                        'dialog_color': self.main_window.dialog_color.get_color(),
-                        'narration_color': self.main_window.narration_color.get_color(),
-                        'dialog_bold': self.main_window.dialog_bold.isChecked(),
-                        'remove_asterisk': self.main_window.remove_asterisk.isChecked(),
-                        'convert_ellipsis': self.main_window.convert_ellipsis.isChecked(),
-                        # 새로 추가된 텍스트 설정
-                        'use_text_size': self.main_window.use_text_size.isChecked(),
-                        'text_size': self.main_window.text_size.value(),
-                        'use_text_indent': self.main_window.use_text_indent.isChecked()
-                    },
-                    'image': {
-                        'size': self.main_window.image_size.value(),
-                        'margin': self.main_window.image_margin.value(),
-                        'use_border': self.main_window.use_image_border.isChecked(),
-                        'border_color': self.main_window.image_border_color.get_color(),
-                        'use_shadow': self.main_window.use_image_shadow.isChecked()
-                    },
-                    'word_replace': [
-                        {
-                            'from': entry.from_word.text(),
-                            'to': entry.to_word.text()
-                        }
-                        for entry in self.main_window.word_replace_container.findChildren(WordReplaceEntry)
-                    ],
-                    'image_mappings': [
-                        {
-                            'tag': entry.tag_input.text(),
-                            'url': entry.url_input.text()
-                        }
-                        for entry in self.main_window.image_url_container.findChildren(ImageUrlEntry)
-                        if entry.tag_input.text().strip() and entry.url_input.text().strip()
-                    ]
+                # 색상 설정 수집 (새로운 설정 추가)
+                current_settings = {
+                    # 기존 설정
+                    'outer_box_color': self.main_window.outer_box_color.get_color(),
+                    'inner_box_color': self.main_window.inner_box_color.get_color(),
+                    'bot_name_color': self.main_window.bot_name_color.get_color(),
+                    'dialog_color': self.main_window.dialog_color.get_color(),
+                    'narration_color': self.main_window.narration_color.get_color(),
+                    'profile_border_color': self.main_window.profile_border_color.get_color(),
+                    'divider_outer_color': self.main_window.divider_outer_color.get_color(),
+                    'divider_inner_color': self.main_window.divider_inner_color.get_color(),
+                    'divider_solid_color': self.main_window.divider_solid_color.get_color(),
+                    'image_border_color': self.main_window.image_border_color.get_color(),
+                    'tag_colors': [color.get_color() for color in self.main_window.tag_colors],
+                    
+                    # 새로 추가된 설정
+                    'inner_thoughts_color': self.main_window.inner_thoughts_color.get_color(),
+                    'box_border_color': self.main_window.box_border_color.get_color(),
+                    
+                    # 관련 체크박스 상태도 저장
+                    'inner_thoughts_bold': self.main_window.inner_thoughts_bold.isChecked(),
+                    'use_box_border': self.main_window.use_box_border.isChecked(),
+                    'box_border_thickness': self.main_window.box_border_thickness.value()
                 }
 
-                self.presets[name] = settings
+                self.presets[name] = current_settings
                 self.save_presets()
                 QMessageBox.information(
                     self.main_window,
@@ -1037,33 +1893,6 @@ class PresetManager:
                     f'프리셋 저장 중 오류가 발생했습니다: {str(e)}'
                 )
 
-    def delete_preset(self, name):
-        """프리셋 삭제"""
-        try:
-            if name in self.presets:
-                reply = QMessageBox.question(
-                    self.main_window,
-                    '프리셋 삭제',
-                    f'"{name}" 프리셋을 삭제하시겠습니까?',
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                )
-                
-                if reply == QMessageBox.StandardButton.Yes:
-                    del self.presets[name]
-                    self.save_presets()
-                    QMessageBox.information(
-                        self.main_window,
-                        '삭제 완료',
-                        f'프리셋 "{name}"이(가) 삭제되었습니다.'
-                    )
-                    return True
-        except Exception as e:
-            QMessageBox.warning(
-                self.main_window,
-                '오류',
-                f'프리셋 삭제 중 오류가 발생했습니다: {str(e)}'
-            )
-        return False
 
     def load_preset(self, name):
         """저장된 프리셋 불러오기"""
@@ -1078,122 +1907,44 @@ class PresetManager:
 
             settings = self.presets[name]
             
-            # 템플릿 설정 적용
-            self.main_window.show_inner_box.setChecked(settings['template']['show_inner_box'])
-            self.main_window.outer_box_color.setColor(settings['template']['outer_box_color'])
-            self.main_window.inner_box_color.setColor(settings['template']['inner_box_color'])
-            self.main_window.shadow_intensity.setValue(settings['template']['shadow_intensity'])
+            # 색상 설정 적용
+            self.main_window.outer_box_color.setColor(settings['outer_box_color'])
+            self.main_window.inner_box_color.setColor(settings['inner_box_color'])
+            self.main_window.bot_name_color.setColor(settings['bot_name_color'])
+            self.main_window.dialog_color.setColor(settings['dialog_color'])
+            self.main_window.narration_color.setColor(settings['narration_color'])
+            self.main_window.profile_border_color.setColor(settings['profile_border_color'])
+            self.main_window.divider_outer_color.setColor(settings['divider_outer_color'])
+            self.main_window.divider_inner_color.setColor(settings['divider_inner_color'])
+            self.main_window.divider_solid_color.setColor(settings['divider_solid_color'])
+            self.main_window.image_border_color.setColor(settings['image_border_color'])
 
-            # 프로필 설정 적용
-            self.main_window.show_profile.setChecked(settings['profile']['show_profile'])
-            self.main_window.show_profile_image.setChecked(settings['profile']['show_profile_image'])
-            self.main_window.show_bot_name.setChecked(settings['profile']['show_bot_name'])
-            self.main_window.show_tags.setChecked(settings['profile']['show_tags'])
-            self.main_window.show_divider.setChecked(settings['profile']['show_divider'])
-            self.main_window.frame_style.setCurrentText(settings['profile']['frame_style'])
-            self.main_window.width_input.setValue(settings['profile']['width'])
-            self.main_window.height_input.setValue(settings['profile']['height'])
-            self.main_window.image_url.setText(settings['profile']['image_url'])
-            self.main_window.profile_border_color.setColor(settings['profile']['profile_border_color'])
-            # 새로 추가된 프로필 설정 적용
-            self.main_window.show_profile_border.setChecked(settings['profile']['show_profile_border'])
-            self.main_window.show_profile_shadow.setChecked(settings['profile']['show_profile_shadow'])
+            # 새로 추가된 설정 적용
+            if 'inner_thoughts_color' in settings:
+                self.main_window.inner_thoughts_color.setColor(settings['inner_thoughts_color'])
+            if 'box_border_color' in settings:
+                self.main_window.box_border_color.setColor(settings['box_border_color'])
+            
+            # 체크박스 상태 적용
+            if 'inner_thoughts_bold' in settings:
+                self.main_window.inner_thoughts_bold.setChecked(settings['inner_thoughts_bold'])
+            if 'use_box_border' in settings:
+                self.main_window.use_box_border.setChecked(settings['use_box_border'])
+            if 'box_border_thickness' in settings:
+                self.main_window.box_border_thickness.setValue(settings['box_border_thickness'])
 
-            # 봇 설정 적용
-            self.main_window.bot_name.setText(settings['bot']['name'])
-            self.main_window.bot_name_color.setColor(settings['bot']['name_color'])
+            # 태그 색상 적용
+            for i, color in enumerate(settings['tag_colors']):
+                if i < len(self.main_window.tag_colors):
+                    self.main_window.tag_colors[i].setColor(color)
 
-            # 기존 태그 제거
-            for i in reversed(range(self.main_window.tag_layout.count())):
-                item = self.main_window.tag_layout.itemAt(i)
-                if item:
-                    if item.layout():
-                        while item.layout().count():
-                            widget = item.layout().takeAt(0).widget()
-                            if widget:
-                                widget.deleteLater()
-                        self.main_window.tag_layout.removeItem(item)
-                    elif item.widget():
-                        item.widget().deleteLater()
-
-            self.main_window.tag_boxes.clear()
-            self.main_window.tag_colors.clear()
-            self.main_window.tag_transparent.clear()
-
-            # 새 태그 추가
-            for tag in settings['tags']:
-                self.main_window.add_new_tag()
-                idx = len(self.main_window.tag_boxes) - 1
-                self.main_window.tag_boxes[idx].setText(tag['text'])
-                self.main_window.tag_colors[idx].setColor(tag['color'])
-                self.main_window.tag_transparent[idx].setChecked(tag['transparent'])
-
-            # 구분선 설정 적용
-            self.main_window.divider_style.setCurrentText(settings['divider']['style'])
-            self.main_window.divider_thickness.setValue(settings['divider']['thickness'])
-            self.main_window.divider_outer_color.setColor(settings['divider']['outer_color'])
-            self.main_window.divider_inner_color.setColor(settings['divider']['inner_color'])
-            self.main_window.divider_solid_color.setColor(settings['divider']['solid_color'])
-
-            # 텍스트 설정 적용
-            self.main_window.text_indent.setValue(settings['text']['indent'])
-            self.main_window.dialog_color.setColor(settings['text']['dialog_color'])
-            self.main_window.narration_color.setColor(settings['text']['narration_color'])
-            self.main_window.dialog_bold.setChecked(settings['text']['dialog_bold'])
-            self.main_window.remove_asterisk.setChecked(settings['text']['remove_asterisk'])
-            self.main_window.convert_ellipsis.setChecked(settings['text']['convert_ellipsis'])
-            # 새로 추가된 텍스트 설정 적용
-            self.main_window.use_text_size.setChecked(settings['text'].get('use_text_size', False))
-            self.main_window.text_size.setValue(settings['text'].get('text_size', 14))
-            self.main_window.use_text_indent.setChecked(settings['text'].get('use_text_indent', True))
-
-            # 이미지 설정 적용
-            if 'image' in settings:
-                self.main_window.image_size.setValue(settings['image']['size'])
-                self.main_window.image_margin.setValue(settings['image']['margin'])
-                self.main_window.use_image_border.setChecked(settings['image']['use_border'])
-                self.main_window.image_border_color.setColor(settings['image']['border_color'])
-                self.main_window.use_image_shadow.setChecked(settings['image']['use_shadow'])
-
-            # 기존 단어 변경 항목 제거
-            for i in reversed(range(self.main_window.word_replace_layout.count())):
-                widget = self.main_window.word_replace_layout.itemAt(i).widget()
-                if widget:
-                    widget.deleteLater()
-
-            # 새 단어 변경 항목 추가
-            for word_replace in settings['word_replace']:
-                entry = WordReplaceEntry(self.main_window.word_replace_container)
-                entry.from_word.setText(word_replace['from'])
-                entry.to_word.setText(word_replace['to'])
-                self.main_window.word_replace_layout.addWidget(entry)
-
-            # 이미지 매핑 적용
-            if 'image_mappings' in settings:
-                # 기존 매핑 제거
-                for i in reversed(range(self.main_window.image_url_layout.count())):
-                    widget = self.main_window.image_url_layout.itemAt(i).widget()
-                    if widget:
-                        widget.deleteLater()
-
-                # 새 매핑 추가
-                for mapping in settings['image_mappings']:
-                    entry = ImageUrlEntry(self.main_window.image_url_container)
-                    entry.tag_input.setText(mapping['tag'])
-                    entry.url_input.setText(mapping['url'])
-                    self.main_window.image_url_layout.addWidget(entry)
-
-            # 설정 적용 후 UI 업데이트
-            self.main_window.update_profile_element_states()
-            self.main_window.update_text_size_state()
-            self.main_window.update_indent_state()
-            self.main_window.update_profile_style_states()
+            # UI 업데이트
             self.main_window.update_preview()
 
             QMessageBox.information(
                 self.main_window,
                 '불러오기 완료',
-                f'프리셋 "{name}"이(가) 성공적으로 적용되었습니다.'
+                f'프리셋 "{name}"이(가) 적용되었습니다.'
             )
             return True
 
@@ -1203,8 +1954,177 @@ class PresetManager:
                 '오류',
                 f'프리셋을 불러오는 중 오류가 발생했습니다: {str(e)}'
             )
-            print(f"프리셋 불러오기 오류: {e}")
             return False
+
+    def delete_preset(self, name):
+        """프리셋 삭제"""
+        try:
+            if name in self.presets:
+                del self.presets[name]
+                self.save_presets()
+                QMessageBox.information(
+                    self.main_window,
+                    '삭제 완료',
+                    f'프리셋 "{name}"이(가) 삭제되었습니다.'
+                )
+                return True
+        except Exception as e:
+            QMessageBox.warning(
+                self.main_window,
+                '오류',
+                f'프리셋 삭제 중 오류가 발생했습니다: {str(e)}'
+            )
+        return False
+
+
+class TagManager:
+    def __init__(self, main_window):
+        self.main_window = main_window
+        self.tags_file = os.path.join(
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation),
+            'tag_sets'
+        )
+        os.makedirs(os.path.dirname(self.tags_file), exist_ok=True)
+
+    def save_tag_set(self, name):
+        """현재 태그 세트를 저장"""
+        try:
+            # 태그 데이터 수집
+            tags = []
+            for i in range(self.main_window.tag_layout.count()):
+                widget = self.main_window.tag_layout.itemAt(i).widget()
+                if isinstance(widget, TagEntry):
+                    tag_data = widget.get_style_dict()
+                    tags.append(tag_data)
+
+            if not tags:
+                raise ValueError("저장할 태그가 없습니다.")
+
+            # 태그 세트 저장
+            file_path = f"{self.tags_file}_{name}.json"
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(tags, f, ensure_ascii=False, indent=2)
+
+            return True, f"태그 세트 '{name}'이(가) 저장되었습니다."
+            
+        except Exception as e:
+            return False, f"태그 저장 중 오류 발생: {str(e)}"
+
+    def load_tag_set(self, name):
+        """저장된 태그 세트 불러오기"""
+        try:
+            file_path = f"{self.tags_file}_{name}.json"
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"태그 파일을 찾을 수 없습니다: {name}")
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                tags = json.load(f)
+
+            # 기존 태그 제거
+            while self.main_window.tag_layout.count():
+                widget = self.main_window.tag_layout.takeAt(0).widget()
+                if widget:
+                    widget.deleteLater()
+
+            # 새 태그 추가
+            for tag_data in tags:
+                entry = TagEntry(self.main_window.tag_container)
+                entry.load_style_dict(tag_data)
+                self.main_window.tag_layout.addWidget(entry)
+
+            return True, f"태그 세트 '{name}'을(를) 불러왔습니다."
+        except Exception as e:
+            return False, f"태그 불러오기 중 오류 발생: {str(e)}"
+
+    def delete_tag_set(self, name):
+        """저장된 태그 세트 삭제"""
+        try:
+            file_path = f"{self.tags_file}_{name}.json"
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"태그 파일을 찾을 수 없습니다: {name}")
+
+            os.remove(file_path)
+            return True, f"태그 세트 '{name}'이(가) 삭제되었습니다."
+        except Exception as e:
+            return False, f"태그 삭제 중 오류 발생: {str(e)}"
+
+    def get_available_tag_sets(self):
+        """저장된 태그 세트 목록 반환"""
+        try:
+            tag_files = glob.glob(f"{self.tags_file}_*.json")
+            return [os.path.basename(f)[len(os.path.basename(self.tags_file)) + 1:-5] 
+                   for f in tag_files]
+        except Exception:
+            return []
+    
+    def save_tag_set_dialog(self):
+        """태그 세트 저장 다이얼로그"""
+        name, ok = QInputDialog.getText(
+            self.main_window, '태그 세트 저장', '저장할 태그 세트의 이름을 입력하세요:'
+        )
+        if ok and name:
+            # 중복 확인
+            tag_file = f"{self.tags_file}_{name}.json"
+            if os.path.exists(tag_file):
+                reply = QMessageBox.question(
+                    self.main_window,
+                    '태그 덮어쓰기',
+                    f'"{name}" 태그 세트가 이미 존재합니다. 덮어쓰시겠습니까?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.No:
+                    return
+                    
+            success, message = self.save_tag_set(name)
+            QMessageBox.information(self.main_window, "태그 저장", message)
+
+    def load_tag_set_dialog(self):
+        """태그 세트 불러오기 다이얼로그"""
+        available_sets = self.get_available_tag_sets()
+        if not available_sets:
+            QMessageBox.information(self.main_window, "태그 불러오기", "저장된 태그 세트가 없습니다.")
+            return
+        
+        name, ok = QInputDialog.getItem(
+            self.main_window,
+            "태그 불러오기",
+            "불러올 태그 세트를 선택하세요:",
+            available_sets,
+            0,
+            False
+        )
+        
+        if ok and name:
+            success, message = self.load_tag_set(name)
+            QMessageBox.information(self.main_window, "태그 불러오기", message)
+
+    def delete_tag_set_dialog(self):
+        """태그 세트 삭제 다이얼로그"""
+        available_sets = self.get_available_tag_sets()
+        if not available_sets:
+            QMessageBox.information(self.main_window, "태그 삭제", "저장된 태그 세트가 없습니다.")
+            return
+        
+        name, ok = QInputDialog.getItem(
+            self.main_window,
+            "태그 삭제",
+            "삭제할 태그 세트를 선택하세요:",
+            available_sets,
+            0,
+            False
+        )
+        
+        if ok and name:
+            reply = QMessageBox.question(
+                self.main_window,
+                "태그 삭제 확인",
+                f"태그 세트 '{name}'을(를) 정말 삭제하시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                success, message = self.delete_tag_set(name)
+                QMessageBox.information(self.main_window, "태그 삭제", message)
 
 
 def resource_path(relative_path):
@@ -1258,128 +2178,209 @@ STYLES = {
     'radius_small': 4,
 }
 
+
 TEMPLATE_PRESETS = {
     "커스텀": {
         "outer_box_color": "#ffffff",
         "inner_box_color": "#f8f9fa",
         "background_color": "#f8f9fa",
         "bot_name_color": "#4a4a4a",
-        "tag_colors": ["#E3E3E8", "#E3E3E8", "#E3E3E8"],
-        "divider_outer_color": "#b8bacf",
+        "dialog_color": "#2d3748",
+        "narration_color": "#4a5568",
+        "inner_thoughts_color": "#718096",
+        "profile_border_color": "#e2e8f0",
+        "box_border_color": "#e2e8f0",
+        "image_border_color": "#e2e8f0",
+        "divider_outer_color": "#e2e8f0",
         "divider_inner_color": "#ffffff",
-        "dialog_color": "#4a4a4a",
-        "narration_color": "#4a4a4a",
-        "profile_border_color": "#ffffff"
+        "gradient_start": "#f8f9fa",
+        "gradient_end": "#ffffff",
+        "tag_colors": ["#edf2f7", "#e2e8f0", "#cbd5e0"],
+        "tag_text_colors": ["#2d3748", "#2d3748", "#2d3748"]
     },
     "모던 블루": {
         "outer_box_color": "#1a202c",
         "inner_box_color": "#2d3748",
         "background_color": "#2d3748",
         "bot_name_color": "#90cdf4",
-        "tag_colors": ["#2d3748", "#2d3748", "#2d3748"],
+        "dialog_color": "#f7fafc",
+        "narration_color": "#e2e8f0",
+        "inner_thoughts_color": "#cbd5e0",
+        "profile_border_color": "#4a5568",
+        "box_border_color": "#4a5568",
+        "image_border_color": "#4a5568",
         "divider_outer_color": "#4a5568",
         "divider_inner_color": "#2d3748",
-        "dialog_color": "#e2e8f0",
-        "narration_color": "#cbd5e0",
-        "profile_border_color": "#4a5568"
+        "gradient_start": "#1a202c",
+        "gradient_end": "#2d3748",
+        "tag_colors": ["#2c5282", "#2b6cb0", "#3182ce"],
+        "tag_text_colors": ["#bee3f8", "#bee3f8", "#ffffff"]
     },
     "다크 모드": {
         "outer_box_color": "#000000",
-        "inner_box_color": "#0a0a0a",
-        "background_color": "#0a0a0a",
+        "inner_box_color": "#1a1a1a",
+        "background_color": "#1a1a1a",
         "bot_name_color": "#ffffff",
-        "tag_colors": ["#1a1a1a", "#262626", "#333333"],
-        "divider_outer_color": "#333333",
-        "divider_inner_color": "#0a0a0a",
         "dialog_color": "#ffffff",
         "narration_color": "#e0e0e0",
-        "profile_border_color": "#333333"
+        "inner_thoughts_color": "#c0c0c0",
+        "profile_border_color": "#333333",
+        "box_border_color": "#333333",
+        "image_border_color": "#333333",
+        "divider_outer_color": "#333333",
+        "divider_inner_color": "#1a1a1a",
+        "gradient_start": "#000000",
+        "gradient_end": "#1a1a1a",
+        "tag_colors": ["#262626", "#333333", "#404040"],
+        "tag_text_colors": ["#e0e0e0", "#e0e0e0", "#ffffff"]
     },
     "로즈 골드": {
         "outer_box_color": "#ffffff",
         "inner_box_color": "#fff5f5",
-        "background_color": "#fff1f1",
+        "background_color": "#fff5f5",
         "bot_name_color": "#c53030",
-        "tag_colors": ["#fed7d7", "#feb2b2", "#fc8181"],
-        "divider_outer_color": "#fc8181",
-        "divider_inner_color": "#ffffff",
         "dialog_color": "#2d3748",
         "narration_color": "#4a5568",
-        "profile_border_color": "#feb2b2"
+        "inner_thoughts_color": "#718096",
+        "profile_border_color": "#feb2b2",
+        "box_border_color": "#fc8181",
+        "image_border_color": "#feb2b2",
+        "divider_outer_color": "#fc8181",
+        "divider_inner_color": "#ffffff",
+        "gradient_start": "#fff5f5",
+        "gradient_end": "#fed7d7",
+        "tag_colors": ["#fed7d7", "#feb2b2", "#fc8181"],
+        "tag_text_colors": ["#c53030", "#c53030", "#ffffff"]
     },
     "민트 그린": {
         "outer_box_color": "#ffffff",
         "inner_box_color": "#f0fff4",
-        "background_color": "#e7faea",
+        "background_color": "#f0fff4",
         "bot_name_color": "#2f855a",
-        "tag_colors": ["#c6f6d5", "#9ae6b4", "#68d391"],
-        "divider_outer_color": "#48bb78",
-        "divider_inner_color": "#ffffff",
         "dialog_color": "#2d3748",
         "narration_color": "#4a5568",
-        "profile_border_color": "#9ae6b4"
+        "inner_thoughts_color": "#718096",
+        "profile_border_color": "#9ae6b4",
+        "box_border_color": "#68d391",
+        "image_border_color": "#9ae6b4",
+        "divider_outer_color": "#68d391",
+        "divider_inner_color": "#ffffff",
+        "gradient_start": "#f0fff4",
+        "gradient_end": "#c6f6d5",
+        "tag_colors": ["#c6f6d5", "#9ae6b4", "#68d391"],
+        "tag_text_colors": ["#2f855a", "#2f855a", "#ffffff"]
     },
     "모던 퍼플": {
         "outer_box_color": "#ffffff",
         "inner_box_color": "#f8f5ff",
-        "background_color": "#f5f0ff",
+        "background_color": "#f8f5ff",
         "bot_name_color": "#6b46c1",
-        "tag_colors": ["#e9d8fd", "#d6bcfa", "#b794f4"],
-        "divider_outer_color": "#9f7aea",
+        "dialog_color": "#2d3748",
+        "narration_color": "#4a5568",
+        "inner_thoughts_color": "#718096",
+        "profile_border_color": "#d6bcfa",
+        "box_border_color": "#b794f4",
+        "image_border_color": "#d6bcfa",
+        "divider_outer_color": "#b794f4",
         "divider_inner_color": "#ffffff",
-        "dialog_color": "#4a5568",
-        "narration_color": "#718096",
-        "profile_border_color": "#9f7aea"
+        "gradient_start": "#f8f5ff",
+        "gradient_end": "#e9d8fd",
+        "tag_colors": ["#e9d8fd", "#d6bcfa", "#b794f4"],
+        "tag_text_colors": ["#6b46c1", "#6b46c1", "#ffffff"]
     },
     "오션 블루": {
         "outer_box_color": "#ffffff",
         "inner_box_color": "#ebf8ff",
-        "background_color": "#e6f6ff",
+        "background_color": "#ebf8ff",
         "bot_name_color": "#2c5282",
-        "tag_colors": ["#bee3f8", "#90cdf4", "#63b3ed"],
-        "divider_outer_color": "#4299e1",
-        "divider_inner_color": "#ffffff",
         "dialog_color": "#2d3748",
         "narration_color": "#4a5568",
-        "profile_border_color": "#63b3ed"
+        "inner_thoughts_color": "#718096",
+        "profile_border_color": "#90cdf4",
+        "box_border_color": "#63b3ed",
+        "image_border_color": "#90cdf4",
+        "divider_outer_color": "#63b3ed",
+        "divider_inner_color": "#ffffff",
+        "gradient_start": "#ebf8ff",
+        "gradient_end": "#bee3f8",
+        "tag_colors": ["#bee3f8", "#90cdf4", "#63b3ed"],
+        "tag_text_colors": ["#2c5282", "#2c5282", "#ffffff"]
     },
     "선셋 오렌지": {
         "outer_box_color": "#ffffff",
         "inner_box_color": "#fffaf0",
-        "background_color": "#fff5eb",
+        "background_color": "#fffaf0",
         "bot_name_color": "#c05621",
-        "tag_colors": ["#feebc8", "#fbd38d", "#f6ad55"],
-        "divider_outer_color": "#ed8936",
-        "divider_inner_color": "#ffffff",
         "dialog_color": "#2d3748",
         "narration_color": "#4a5568",
-        "profile_border_color": "#fbd38d"
+        "inner_thoughts_color": "#718096",
+        "profile_border_color": "#fbd38d",
+        "box_border_color": "#f6ad55",
+        "image_border_color": "#fbd38d",
+        "divider_outer_color": "#f6ad55",
+        "divider_inner_color": "#ffffff",
+        "gradient_start": "#fffaf0",
+        "gradient_end": "#feebc8",
+        "tag_colors": ["#feebc8", "#fbd38d", "#f6ad55"],
+        "tag_text_colors": ["#c05621", "#c05621", "#ffffff"]
     },
     "모카 브라운": {
         "outer_box_color": "#ffffff",
         "inner_box_color": "#faf5f1",
-        "background_color": "#f7f0ec",
+        "background_color": "#faf5f1",
         "bot_name_color": "#7b341e",
-        "tag_colors": ["#e8d6cf", "#d6bcab", "#b08b6e"],
-        "divider_outer_color": "#b08b6e",
-        "divider_inner_color": "#ffffff",
         "dialog_color": "#2d3748",
         "narration_color": "#4a5568",
-        "profile_border_color": "#d6bcab"
+        "inner_thoughts_color": "#718096",
+        "profile_border_color": "#d6bcab",
+        "box_border_color": "#b08b6e",
+        "image_border_color": "#d6bcab",
+        "divider_outer_color": "#b08b6e",
+        "divider_inner_color": "#ffffff",
+        "gradient_start": "#faf5f1",
+        "gradient_end": "#e8d6cf",
+        "tag_colors": ["#e8d6cf", "#d6bcab", "#b08b6e"],
+        "tag_text_colors": ["#7b341e", "#7b341e", "#ffffff"]
     },
     "스페이스 그레이": {
         "outer_box_color": "#1a1a1a",
         "inner_box_color": "#2d2d2d",
-        "background_color": "#262626",
+        "background_color": "#2d2d2d",
         "bot_name_color": "#e2e2e2",
-        "tag_colors": ["#404040", "#4a4a4a", "#525252"],
-        "divider_outer_color": "#404040",
-        "divider_inner_color": "#2d2d2d",
         "dialog_color": "#ffffff",
         "narration_color": "#d1d1d1",
-        "profile_border_color": "#404040"
+        "inner_thoughts_color": "#b0b0b0",
+        "profile_border_color": "#404040",
+        "box_border_color": "#404040",
+        "image_border_color": "#404040",
+        "divider_outer_color": "#404040",
+        "divider_inner_color": "#2d2d2d",
+        "gradient_start": "#1a1a1a",
+        "gradient_end": "#2d2d2d",
+        "tag_colors": ["#404040", "#4a4a4a", "#525252"],
+        "tag_text_colors": ["#e2e2e2", "#e2e2e2", "#ffffff"]
+    },
+    "그라데이션 모던": {
+        "outer_box_color": "#fafafa",
+        "inner_box_color": "#fafafa",
+        "background_color": "#fafafa",
+        "bot_name_color": "#494949",
+        "dialog_color": "#494949",
+        "narration_color": "#666666",
+        "inner_thoughts_color": "#808080",
+        "profile_border_color": "#e3e3e3",
+        "box_border_color": "#e9e9e9",
+        "image_border_color": "#e3e3e3",
+        "divider_outer_color": "#e9e9e9",
+        "divider_inner_color": "#e9e9e9",
+        "gradient_start": "#D9D782",
+        "gradient_end": "#A9B9D9",
+        "tag_colors": ["#494949", "#494949", "#494949"],
+        "tag_text_colors": ["#d5d5d5", "#d5d5d5", "#d5d5d5"]
     }
 }
+
+
 # 기본 프로필 이미지 (placeholder)
 DEFAULT_PROFILE_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4wYJBhYRN2n7qQAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAEiUlEQVR42u2dW2hcVRSGv3XOxEmTmTRp2kziJU0UqUVriy+CLxZfi1gUX3wTfPBJ8EkQwQteMFIfLFoQxQteMCJeULQoquKDgheCbdHWam0vMW3TJm0ymUzmnJk5e/kwt7SSOSdNOpN91v+0YQ577T3/f9bea6+99hgTExMTExMTExMTE5NbE2lNRapr+xUwD8gFEWB4dJQrAyfo6+1JXGsAD4vgSQgbj0EkLgcKqAocxeWkOJwgrr+1JR1CJovpKDxbgUfFY4vApgJJACIgHkioIghYgDCwLlCjsV4mE3YyELBDQRYEHVKOEhKQEYFMURaLsAhYPr5wYkBEGFOXIZcEtjE2DWgmWYagSEwGXWVxWvGKpcQR+qIW5wYsCm5K7DQXn4xSEu/Hw0J9LyeOg0e2RTgrmALZYEfIlDCHew6xvKjEpuXsKHiJcqNUqWAsEzFPt8QRxK+A/lCIU/lFtM8PsXdVmBdiZXyiNluIc6hrPxt6HYpkmGTa5CWbQ48cUBIFxMJjXuEALyaWcPp4DesWb2N/SnycGPPxqABfimIMSUBJpAYRDwXm5vXxQayaV2QZO4kTlJAvn7xgwqe3bkEAevKEJUWCiUQNIuCJ0lR3lb3HDpC32SZzk6QaE0EBRBhVDxEhLh4RD0Q9clQoFEhcwPd6BcwXGRIYU6VPhJj6FOARBo6ny9kYGuRo1zeMxEcoWxtlUEEFJKSAqjKkMKxCSISwQDEQUsETxRXBQ7BE8EQQVVxbKVCbEYHjwEsiZxAsgWVWnPq2GNUt7URo5GTNaZbVDnKnZdN0vJY3B7JZIw4t6pPGElx1cUUZE2FYlYgqloArQlCUAlXyVclWiKsyKoIliqseYVEUYVSVfhFCAlFVRgSiojjq4agQUyVPhDCAqBAVxRMlR4SQKq7CkAhRUVwRPIGwKo5ATABPsVWIq4cnQlCVuAoeEBTBUSWkEFElLEKBKDnq4QKOQESEYVXiqgQFwqpEFWSszTiqOCLY6hEX8LQ8hwc74OIcIVB9nJbmTr7rPMzg0EUcN0aWVo5n6AW27XB5YjfHA6V8r1kuEXFwhZAqriioKo4IUYGoCIUKeaqERMhWIU+VHFGGBIZViaq/fPl/OHIcXBRbBFshLkqOQESUiEJIBFuUQYVRVWz1CAmoCrZ6xFSxEQLqkSsQFigQxVXBFsUVGFPwRHBViSsEBBRBRQmJkqNg64R4iHi4ohQi2KLYAiEVXFVy1CMoSgQIihATxRXFq0mQHspmLmA8BRFQhJgqYVFsAVdASYiHCGFV8kSwx1NX4fV5ZrE9nMfF+BD5JQrFDsUWBEUIixBTxRbBBkSUMYGQKA5gixJXJSxQKEKY8fM4FWwEVyAmQlyEkCpxEYIK+QIB9chRGD/pE2KixFUJq2IrBEQJiRBRZUQgJEJQwRMQEYbVI6Yg6hFQwEU8EWyBoCqOQFggR5SQguv5OxGDIgQEHBWiAjGBoHrkC4RFGQMiAgHAdYW5IgSBEQHiEMWlQqBIICJCXAVHYNAVBgUyRYgJxBDiOHQrZIsy6qZRzxsmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJtPI3wlK8GXlSW/WAAAAAElFTkSuQmCC"
 
@@ -1391,7 +2392,19 @@ class ModernButton(QPushButton):
         super().__init__(text, parent)
         self.primary = primary
         self.setup_style()
-        
+        self.error_handler = ErrorHandler(self)
+
+        try:
+            # 위험한 작업 수행
+            pass
+        except Exception as e:
+            self.error_handler.handle_error(
+                "작업 처리 중 오류가 발생했습니다.",
+                ErrorSeverity.HIGH,
+                e
+            )
+
+
     def setup_style(self):
         style = f"""
             QPushButton {{
@@ -1654,7 +2667,7 @@ class ImageUrlEntry(QWidget):
 
 class TagEntry(QWidget):
     """개선된 태그 입력 컴포넌트"""
-    tagChanged = pyqtSignal()  # 태그 변경 시그널 추가
+    tagChanged = pyqtSignal()  # 태그 변경 시그널
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1675,14 +2688,21 @@ class TagEntry(QWidget):
         # 색상 설정 컨테이너
         color_container = QHBoxLayout()
         
-        # 배경색/테두리색 레이블
+        # 배경색/테두리색 레이블과 버튼
         self.color_label = QLabel("배경색")
         color_container.addWidget(self.color_label)
         
-        # 색상 선택 버튼
         self.color_btn = ModernColorButton("#E3E3E8")
         self.color_btn.clicked.connect(self.choose_color)
         color_container.addWidget(self.color_btn)
+
+        # 텍스트 색상 레이블과 버튼 추가
+        self.text_color_label = QLabel("텍스트")
+        color_container.addWidget(self.text_color_label)
+        
+        self.text_color_btn = ModernColorButton("#000000")  # 기본 텍스트 색상은 검정
+        self.text_color_btn.clicked.connect(self.choose_text_color)
+        color_container.addWidget(self.text_color_btn)
         
         # 스타일 선택 콤보박스 추가
         self.style_combo = ModernComboBox()
@@ -1705,10 +2725,17 @@ class TagEntry(QWidget):
         self.padding = {"top": 0.2, "right": 0.8, "bottom": 0.2, "left": 0.8}
 
     def choose_color(self):
-        """색상 선택 다이얼로그"""
+        """배경색 선택 다이얼로그"""
         color = QColorDialog.getColor()
         if color.isValid():
             self.color_btn.setColor(color.name())
+            self.on_tag_changed()
+            
+    def choose_text_color(self):
+        """텍스트 색상 선택 다이얼로그"""
+        color = QColorDialog.getColor()
+        if color.isValid():
+            self.text_color_btn.setColor(color.name())
             self.on_tag_changed()
             
     def update_style_settings(self, style):
@@ -1731,6 +2758,7 @@ class TagEntry(QWidget):
         return {
             'text': self.tag_input.text(),
             'color': self.color_btn.get_color(),
+            'text_color': self.text_color_btn.get_color(),  # 텍스트 색상 추가
             'style': self.style_combo.currentText(),
             'border_radius': self.border_radius,
             'font_size': self.font_size,
@@ -1741,6 +2769,7 @@ class TagEntry(QWidget):
         """딕셔너리에서 스타일 정보 로드"""
         self.tag_input.setText(style_dict.get('text', ''))
         self.color_btn.setColor(style_dict.get('color', '#E3E3E8'))
+        self.text_color_btn.setColor(style_dict.get('text_color', '#000000'))  # 텍스트 색상 로드
         self.style_combo.setCurrentText(style_dict.get('style', '기본'))
         self.border_radius = style_dict.get('border_radius', 20)
         self.font_size = style_dict.get('font_size', 0.85)
@@ -1752,49 +2781,174 @@ class TagEntry(QWidget):
 class ModernLogGenerator(QMainWindow):
     def __init__(self):
         super().__init__()
+        
+        self.error_handler = ErrorHandler(self)
+
+        # bot_name 속성 추가
+        self.bot_name = QLineEdit()
+        self.bot_name.setPlaceholderText("봇 이름")
+        
+        # 매니저 초기화
+        self.profile_manager = ProfileManager(self)
+        
+        # 캐시 매니저 초기화
+        self.image_cache_manager = ImageCacheManager()
+        
+        # 캐시 정리 타이머 설정
+        self.cache_cleanup_timer = QTimer()
+        self.cache_cleanup_timer.setInterval(3600000)  # 1시간마다
+        self.cache_cleanup_timer.timeout.connect(self.cleanup_caches)
+        self.cache_cleanup_timer.start()
+
         self.preview_timer = None
+        self.resource_manager = ResourceManager(self)
+        
+        # Settings & Cache Initialization
+        self.settings = QSettings('YourCompany', 'LogGenerator')
+        self.image_cache = ImageCache()
+        
+        # 매니저 초기화
+        self.template_manager = TemplateManager(self)
+        self.mapping_manager = MappingManager(self)
+        self.tag_manager = TagManager(self)
+        self.word_replace_manager = WordReplaceManager(self)
+        self.preset_manager = PresetManager(self)
+        
+        # Character Card Handler
         self.card_handler = CharacterCardHandler()
         self.asset_name_img_tag_map = {}
-        self.image_cache = ImageCache()
-        self.mapping_manager = MappingManager(self)
-        self.settings = QSettings('YourCompany', 'LogGenerator')
-        self.splitter = None
-
-        # 템플릿 매니저 초기화 (새로 추가)
-        self.template_manager = TemplateManager(self)
         
-        # 태그 관련 초기화
+        # Splitter
+        self.splitter = None
+        
+        # Tag Related Initialization
         self.tag_boxes = []
         self.tag_colors = []
         self.tag_transparent = []
         self.tag_presets = {}
         self.load_tag_presets_from_file()
         
-        # UI 초기화
+        # UI Initialization
         self.init_ui()
         self.restore_geometry_and_state()
 
-        # 아이콘 설정
+        # Icon Setup
         icon_path = resource_path('log_icon.ico')
         self.setWindowIcon(QIcon(icon_path))
         
-        # 다크모드 변경 감지
+        # Dark Mode Handler
         self.color_scheme_handler = QApplication.instance().styleHints()
         self.color_scheme_handler.colorSchemeChanged.connect(self.update_color_scheme)
         
-        # 프리셋 매니저 초기화
-        self.preset_manager = PresetManager(self)
-        
-        # 프로필 이미지 핸들러 초기화
+        # Profile Image Handlers
         self.init_profile_image_handlers()
 
-        # 기본 템플릿 적용
+        # Apply Default Template
         self.template_manager.apply_template("커스텀")
 
-        # 자동 저장 타이머 설정
+        # Auto Save Timer
         self.auto_save_timer = QTimer()
         self.auto_save_timer.setInterval(60000)  # 1분마다 자동 저장
+        self.auto_save_timer.timeout.connect(self.auto_save)
         self.auto_save_timer.start()
+
+
+
+    def cleanup_caches(self):
+        """주기적 캐시 정리"""
+        try:
+            # 만료된 캐시 항목 정리
+            cleaned_count = self.image_cache_manager.cleanup_expired()
+            
+            # 캐시 상태 확인
+            stats = self.image_cache_manager.get_stats()
+            
+            # 로그에 기록
+            if cleaned_count > 0:
+                print(f"캐시 정리 완료: {cleaned_count}개 항목 제거")
+                print(f"현재 캐시 상태: {stats}")
+                
+        except Exception as e:
+            self.error_handler.handle_error(
+                "캐시 정리 중 오류가 발생했습니다.",
+                ErrorSeverity.LOW,
+                e
+            )
+            
+    def process_image_url(self, url):
+        """이미지 URL 처리 (캐시 활용)"""
+        try:
+            # 캐시 확인
+            cached_data = self.image_cache_manager.get(url)
+            if cached_data:
+                return cached_data
+                
+            # 캐시에 없으면 처리
+            processed_url = super().process_image_url(url)
+            
+            # 캐시 저장
+            self.image_cache_manager.set(url, processed_url)
+            
+            return processed_url
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                "이미지 URL 처리 중 오류가 발생했습니다.",
+                ErrorSeverity.MEDIUM,
+                e
+            )
+            return DEFAULT_PROFILE_IMAGE
+            
+    def show_cache_stats(self):
+        """캐시 상태 표시 다이얼로그"""
+        try:
+            stats = self.image_cache_manager.get_stats()
+            
+            msg = (
+                f"캐시 상태 정보:\n\n"
+                f"총 항목 수: {stats['total_items']}\n"
+                f"최대 항목 수: {stats['max_size']}\n"
+                f"사용률: {stats['utilization']}\n"
+                f"총 용량: {stats['total_size_mb']}\n"
+                f"최대 용량: {stats['max_size_mb']}\n"
+                f"용량 사용률: {stats['size_utilization']}\n"
+                f"가장 오래된 항목: {stats['oldest_item_age']:.1f}초\n"
+                f"최신 항목: {stats['newest_item_age']:.1f}초"
+            )
+            
+            QMessageBox.information(self, "캐시 상태", msg)
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                "캐시 상태 확인 중 오류가 발생했습니다.",
+                ErrorSeverity.LOW,
+                e
+            )
+
+
+    def auto_save(self):
+        """자동 저장 기능"""
+        try:
+            # 현재 설정들 저장
+            self.save_settings()
+            print("자동 저장 완료")
+        except Exception as e:
+            print(f"자동 저장 중 오류 발생: {str(e)}")
+
+    def save_settings(self):
+        """현재 설정 저장"""
+        try:
+            # 각종 설정 저장
+            self.preset_manager.save_presets()
+            self.save_tag_presets_to_file()
+            self.image_cache.save_mappings()
+            
+            # 창 위치와 크기 저장
+            self.settings.setValue('window_geometry', self.saveGeometry())
+            if self.splitter:
+                self.settings.setValue('splitter_state', self.splitter.saveState())
+        except Exception as e:
+            print(f"설정 저장 중 오류 발생: {str(e)}")
 
     def create_preset_button(self):
         """프리셋 관리 버튼 생성"""
@@ -1830,35 +2984,6 @@ class ModernLogGenerator(QMainWindow):
                 delete_action = delete_preset_menu.addAction(name)
                 delete_action.triggered.connect(lambda checked, n=name: self.preset_manager.delete_preset(n))
 
-    def closeEvent(self, event):
-        """프로그램 종료 시 처리"""
-        try:
-            # 타이머 정리
-            if self.preview_timer is not None:
-                self.preview_timer.stop()
-                self.preview_timer.deleteLater()
-
-            # 창 위치와 크기 저장
-            self.settings.setValue('window_geometry', self.saveGeometry())
-            if self.splitter:
-                self.settings.setValue('splitter_state', self.splitter.saveState())
-
-            # 프리셋과 템플릿 저장
-            self.preset_manager.save_presets()
-            self.save_tag_presets_to_file()
-
-            # 위젯 정리
-            for widget in self.findChildren(QWidget):
-                widget.deleteLater()
-
-            # 임시 파일 정리
-            if hasattr(self, 'card_handler'):
-                self.card_handler.cleanup()
-            
-            event.accept()
-        except Exception as e:
-            self.handle_error(f"프로그램 종료 중 오류가 발생했습니다: {str(e)}")
-            event.accept()
 
     def load_tag_presets_from_file(self):
         """태그 프리셋 파일에서 불러오기"""
@@ -1892,29 +3017,6 @@ class ModernLogGenerator(QMainWindow):
                 '오류',
                 f'태그 프리셋 저장 중 오류가 발생했습니다: {str(e)}'
             )
-
-    def closeEvent(self, event):
-        """프로그램 종료 시 리소스 정리"""
-        try:
-            if self.preview_timer is not None:
-                self.preview_timer.stop()
-                self.preview_timer.deleteLater()
-
-            # 프리셋 저장
-            self.preset_manager.save_presets()
-            # 태그 프리셋도 저장
-            self.save_tag_presets_to_file()
-
-            for widget in self.findChildren(QWidget):
-                widget.deleteLater()
-
-            if hasattr(self, 'card_handler'):
-                self.card_handler.cleanup()
-            
-            event.accept()
-        except Exception as e:
-            self.handle_error(f"프로그램 종료 중 오류가 발생했습니다: {str(e)}")
-            event.accept()
 
     def init_ui(self):
         """UI 초기화"""
@@ -2001,34 +3103,6 @@ class ModernLogGenerator(QMainWindow):
             splitter_state = self.settings.value('splitter_state')
             if splitter_state:
                 self.splitter.restoreState(splitter_state)
-
-    def closeEvent(self, event):
-        """프로그램 종료 시 상태 저장"""
-        try:
-            # 창 크기와 위치 저장
-            self.settings.setValue('window_geometry', self.saveGeometry())
-            
-            # Splitter 상태 저장
-            if self.splitter:
-                self.settings.setValue('splitter_state', self.splitter.saveState())
-
-            # 기존의 closeEvent 로직 실행
-            if self.preview_timer is not None:
-                self.preview_timer.stop()
-                self.preview_timer.deleteLater()
-
-            self.preset_manager.save_presets()
-
-            for widget in self.findChildren(QWidget):
-                widget.deleteLater()
-
-            if hasattr(self, 'card_handler'):
-                self.card_handler.cleanup()
-            
-            event.accept()
-        except Exception as e:
-            self.handle_error(f"프로그램 종료 중 오류가 발생했습니다: {str(e)}")
-            event.accept()
 
     def setup_styles(self):
         """전역 스타일 설정"""
@@ -2137,69 +3211,11 @@ class ModernLogGenerator(QMainWindow):
             self.update_preview()
             
         except Exception as e:
-            self.handle_error(f"다크모드 전환 중 오류 발생: {str(e)}")
-
-    def choose_color(self, target):
-        """색상 선택 다이얼로그"""
-        try:
-            # 현재 색상 가져오기
-            current_color = None
-            color_button = None
-            
-            color_mappings = {
-                "outer_box": (self.outer_box_color, "외부 박스"),
-                "inner_box": (self.inner_box_color, "내부 박스"),
-                "profile_border": (self.profile_border_color, "프로필 테두리"),
-                "bot_name": (self.bot_name_color, "봇 이름"),
-                "dialog": (self.dialog_color, "대화문"),
-                "narration": (self.narration_color, "나레이션"),
-                "divider_outer": (self.divider_outer_color, "구분선 외부"),
-                "divider_inner": (self.divider_inner_color, "구분선 내부"),
-                "divider_solid": (self.divider_solid_color, "구분선"),
-                "image_border": (self.image_border_color, "이미지 테두리")
-            }
-            
-            if target in color_mappings:
-                color_button, title = color_mappings[target]
-                current_color = color_button.get_color()
-            
-            if not color_button:
-                return
-                
-            # 색상 선택 다이얼로그 생성
-            dialog = QColorDialog(self)
-            dialog.setWindowTitle(f"{title} 색상 선택")
-            dialog.setCurrentColor(QColor(current_color))
-            dialog.setOption(QColorDialog.ColorDialogOption.DontUseNativeDialog)
-            
-            # 최근 사용한 색상 표시
-            if hasattr(self, 'recent_colors'):
-                for color in self.recent_colors:
-                    dialog.setCustomColor(len(dialog.customCount()), QColor(color))
-            
-            if dialog.exec() == QColorDialog.DialogCode.Accepted:
-                new_color = dialog.selectedColor()
-                
-                if new_color.isValid():
-                    # 색상 적용
-                    color_button.setColor(new_color.name())
-                    
-                    # 최근 사용한 색상 저장
-                    if not hasattr(self, 'recent_colors'):
-                        self.recent_colors = []
-                    if new_color.name() not in self.recent_colors:
-                        self.recent_colors.insert(0, new_color.name())
-                        self.recent_colors = self.recent_colors[:10]  # 최대 10개 저장
-                    
-                    # 현재 템플릿이 커스텀이 아니면 커스텀으로 변경
-                    if self.template_combo.currentText() != "커스텀":
-                        self.template_combo.setCurrentText("커스텀")
-                    
-                    # 미리보기 업데이트
-                    self.update_preview()
-                    
-        except Exception as e:
-            self.handle_error(f"색상 선택 중 오류 발생: {str(e)}")
+            self.handle_error(
+                "데이터 처리 중 오류가 발생했습니다.",
+                ErrorSeverity.MEDIUM,
+                e
+            )
 
     def update_preview(self):
         """미리보기 업데이트"""
@@ -2228,8 +3244,17 @@ class ModernLogGenerator(QMainWindow):
                         
                         # UI 요소들 애니메이션 효과
                         for widget in self.findChildren(QWidget, "tag_container"):
-                            self.animate_widget(widget)
-                        
+                            # 페이드 효과
+                            opacity_effect = QGraphicsOpacityEffect(widget)
+                            widget.setGraphicsEffect(opacity_effect)
+                            
+                            animation = QPropertyAnimation(opacity_effect, b"opacity")
+                            animation.setDuration(200)
+                            animation.setStartValue(0.5)
+                            animation.setEndValue(1.0)
+                            animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+                            animation.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
+                            
                 except Exception as e:
                     print(f"Preview update error: {str(e)}")
             
@@ -2239,6 +3264,40 @@ class ModernLogGenerator(QMainWindow):
             
         except Exception as e:
             print(f"Preview timer setup error: {str(e)}")
+
+
+    def generate_html(self):
+        try:
+            # 현재 템플릿이 그라데이션 모던인지 확인
+            template_name = self.template_combo.currentText()
+            is_gradient = template_name == "그라데이션 모던"
+            
+            # 그라데이션 스타일 설정
+            gradient_style = ""
+            if is_gradient:
+                gradient_style = f"""
+                    background: linear-gradient(135deg, 
+                        {self.gradient_start}, 
+                        {self.gradient_end}
+                    );
+                """
+            
+            # HTML 생성
+            html = f"""
+            <div class="chat-container" style="{gradient_style}">
+                <!-- 기존 HTML 내용 -->
+                {self.generate_profile_html() if self.show_profile.isChecked() else ''}
+                {self.generate_content_html()}
+            </div>
+            """
+            
+            return html
+            
+        except Exception as e:
+            print(f"HTML 생성 중 오류 발생: {str(e)}")
+            return ""
+
+ 
 
     def animate_widget(self, widget):
         """위젯 페이드 인 애니메이션"""
@@ -2334,9 +3393,7 @@ class ModernLogGenerator(QMainWindow):
         # 각 설정 그룹 생성
         template_group = self.create_template_settings()
         profile_group = self.create_profile_settings()
-        bot_group = self.create_bot_settings()
         tag_group = self.create_tag_settings()
-        divider_group = self.create_divider_settings()
         text_group = self.create_text_settings()
         word_replace_group = self.create_word_replace_settings()
         
@@ -2347,9 +3404,7 @@ class ModernLogGenerator(QMainWindow):
         # 설정 그룹들을 스크롤 레이아웃에 추가
         scroll_layout.addWidget(template_group)
         scroll_layout.addWidget(profile_group)
-        scroll_layout.addWidget(bot_group)
         scroll_layout.addWidget(tag_group)
-        scroll_layout.addWidget(divider_group)
         scroll_layout.addWidget(text_group)
         scroll_layout.addWidget(word_replace_group)
         scroll_layout.addWidget(asset_image_group)  # 새로 추가
@@ -2431,77 +3486,144 @@ class ModernLogGenerator(QMainWindow):
         return group
 
     def create_template_settings(self):
-        """템플릿 설정 그룹 생성"""
-        group = SettingsGroup("템플릿 설정")
-        
-        # 버튼 컨테이너
-        button_container = QWidget()
-        button_layout = QHBoxLayout(button_container)
-        
-        # 프리셋 관리 버튼
-        preset_btn = self.create_preset_button()
-        button_layout.addWidget(preset_btn)
-        
-        
-        button_layout.addStretch()
-        group.addWidget(button_container)
+            """템플릿 및 구분선 설정 통합 그룹 생성"""
+            group = SettingsGroup("템플릿 설정")
+            
+            # 프리셋 관리 버튼 컨테이너
+            button_container = QWidget()
+            button_layout = QHBoxLayout(button_container)
+            button_layout.setContentsMargins(0, 0, 0, STYLES['spacing_normal'])
+            
+            # 프리셋 관리 버튼
+            preset_btn = self.create_preset_button()
+            button_layout.addWidget(preset_btn)
+            button_layout.addStretch()
+            group.addWidget(button_container)
 
-        # 템플릿 선택
-        template_container = QWidget()
-        template_layout = QHBoxLayout(template_container)  # 컨테이너에 레이아웃 설정
-        
-        template_layout.addWidget(QLabel("템플릿"))
-        self.template_combo = ModernComboBox()
-        self.template_combo.addItems(self.template_manager.get_template_names())
-        self.template_combo.currentTextChanged.connect(self.apply_template)
-        template_layout.addWidget(self.template_combo)
-        
-        group.addWidget(template_container)  # 컨테이너를 그룹에 추가
+            # 템플릿 선택
+            template_container = QWidget()
+            template_layout = QHBoxLayout(template_container)
+            template_layout.setContentsMargins(0, 0, 0, STYLES['spacing_normal'])
+            
+            template_layout.addWidget(QLabel("템플릿"))
+            self.template_combo = ModernComboBox()
+            self.template_combo.addItems(self.template_manager.get_template_names())
+            self.template_combo.currentTextChanged.connect(self.template_manager.apply_template)
+            template_layout.addWidget(self.template_combo)
+            
+            group.addWidget(template_container)
 
-        # 외부 박스 설정
-        box_layout = QHBoxLayout()
-        self.show_inner_box = ModernCheckBox("외부 박스 표시")
-        self.show_inner_box.setChecked(False)
-        self.show_inner_box.stateChanged.connect(self.update_preview)
-        box_layout.addWidget(self.show_inner_box)
-        box_layout.addStretch()
-        group.addLayout(box_layout)
+            # 외부 박스 설정
+            box_layout = QHBoxLayout()
+            self.show_inner_box = ModernCheckBox("외부 박스 표시")
+            self.show_inner_box.setChecked(False)
+            self.show_inner_box.stateChanged.connect(self.update_preview)
+            box_layout.addWidget(self.show_inner_box)
+            box_layout.addStretch()
+            group.addLayout(box_layout)
 
-        # 색상 설정 컨테이너
-        colors_container = QWidget()
-        colors_layout = QVBoxLayout(colors_container)
-        
-        # 외부 박스 색상
-        outer_box_layout = QHBoxLayout()
-        outer_box_layout.addWidget(QLabel("외부 박스 색상"))
-        self.outer_box_color = ModernColorButton(STYLES['outer_box_color'])
-        self.outer_box_color.clicked.connect(lambda: self.choose_color("outer_box"))
-        outer_box_layout.addWidget(self.outer_box_color)
-        colors_layout.addLayout(outer_box_layout)
-        
-        # 내부 박스 색상
-        inner_box_layout = QHBoxLayout()
-        inner_box_layout.addWidget(QLabel("내부 박스 색상"))
-        self.inner_box_color = ModernColorButton(STYLES['inner_box_color'])
-        self.inner_box_color.clicked.connect(lambda: self.choose_color("inner_box"))
-        inner_box_layout.addWidget(self.inner_box_color)
-        colors_layout.addLayout(inner_box_layout)
-        
-        group.addWidget(colors_container)
+            # 색상 설정 컨테이너
+            colors_container = QWidget()
+            colors_layout = QVBoxLayout(colors_container)
+            colors_layout.setSpacing(STYLES['spacing_small'])
+            
+            # 외부 박스 색상
+            outer_box_layout = QHBoxLayout()
+            outer_box_layout.addWidget(QLabel("외부 박스 색상"))
+            self.outer_box_color = ModernColorButton(STYLES['outer_box_color'])
+            self.outer_box_color.clicked.connect(lambda: self.choose_color("outer_box"))
+            outer_box_layout.addWidget(self.outer_box_color)
+            colors_layout.addLayout(outer_box_layout)
+            
+            # 내부 박스 색상
+            inner_box_layout = QHBoxLayout()
+            inner_box_layout.addWidget(QLabel("내부 박스 색상"))
+            self.inner_box_color = ModernColorButton(STYLES['inner_box_color'])
+            self.inner_box_color.clicked.connect(lambda: self.choose_color("inner_box"))
+            inner_box_layout.addWidget(self.inner_box_color)
+            colors_layout.addLayout(inner_box_layout)
+            
+            group.addWidget(colors_container)
 
-        # 그림자 설정
-        shadow_container = QWidget()
-        shadow_layout = QHBoxLayout(shadow_container)
+            # 그림자 설정
+            shadow_container = QWidget()
+            shadow_layout = QHBoxLayout(shadow_container)
+            shadow_layout.addWidget(QLabel("그림자 강도"))
 
-        self.shadow_intensity = ModernSpinBox()
-        self.shadow_intensity.setRange(0, 40)
-        self.shadow_intensity.setValue(STYLES['shadow_intensity'])
-        self.shadow_intensity.valueChanged.connect(self.update_preview)
+            self.shadow_intensity = ModernSpinBox()
+            self.shadow_intensity.setRange(0, 40)
+            self.shadow_intensity.setValue(STYLES['shadow_intensity'])
+            self.shadow_intensity.valueChanged.connect(self.update_preview)
+            shadow_layout.addWidget(self.shadow_intensity)
 
-        
-        group.addWidget(shadow_container)
+            # 그림자 설명 레이블
+            shadow_info = QLabel("(0~40px)")
+            shadow_info.setStyleSheet(f"color: {STYLES['text_secondary']};")
+            shadow_layout.addWidget(shadow_info)
+            shadow_layout.addStretch()
 
-        return group
+            group.addWidget(shadow_container)
+            shadow_container.setVisible(False)  # 컨테이너를 숨김
+
+            # 테두리 설정 섹션 추가
+            border_section = QWidget()
+            border_layout = QVBoxLayout(border_section)
+            border_layout.setSpacing(STYLES['spacing_small'])
+            
+            # 테두리 제목
+            border_title = QLabel("로그박스 테두리 설정")
+            border_layout.addWidget(border_title)
+
+            # 테두리 사용 체크박스
+            self.use_box_border = ModernCheckBox("테두리 사용")
+            self.use_box_border.setChecked(False)
+            self.use_box_border.stateChanged.connect(self.update_border_settings)
+            border_layout.addWidget(self.use_box_border)
+
+            # 테두리 설정 컨테이너
+            self.border_settings = QWidget()
+            border_settings_layout = QVBoxLayout(self.border_settings)
+            border_settings_layout.setSpacing(STYLES['spacing_small'])
+            border_settings_layout.setContentsMargins(20, 0, 0, 0)  # 왼쪽 들여쓰기
+
+            # 테두리 색상 설정
+            border_color_layout = QHBoxLayout()
+            border_color_layout.addWidget(QLabel("테두리 색상"))
+            self.box_border_color = ModernColorButton("#CCCCCC")  # 기본 회색
+            self.box_border_color.clicked.connect(lambda: self.choose_color("box_border"))
+            border_color_layout.addWidget(self.box_border_color)
+            border_settings_layout.addLayout(border_color_layout)
+
+            # 테두리 굵기 설정
+            border_thickness_layout = QHBoxLayout()
+            border_thickness_layout.addWidget(QLabel("테두리 굵기"))
+            self.box_border_thickness = ModernSpinBox()
+            self.box_border_thickness.setRange(1, 8)
+            self.box_border_thickness.setValue(2)
+            self.box_border_thickness.setSuffix("px")
+            self.box_border_thickness.setFixedWidth(70)
+            border_thickness_layout.addWidget(self.box_border_thickness)
+            
+            # 굵기 설명 레이블
+            thickness_info = QLabel("(1~8px)")
+            thickness_info.setStyleSheet(f"color: {STYLES['text_secondary']};")
+            border_thickness_layout.addWidget(thickness_info)
+            border_thickness_layout.addStretch()
+            
+            border_settings_layout.addLayout(border_thickness_layout)
+            
+            border_layout.addWidget(self.border_settings)
+            group.addWidget(border_section)
+            
+            # 초기 테두리 설정 상태 업데이트
+            self.update_border_settings(self.use_box_border.isChecked())
+
+            return group
+
+    def update_border_settings(self, enabled):
+        """테두리 설정 상태 업데이트"""
+        self.border_settings.setEnabled(enabled)
+        self.update_preview()
 
     def save_current_template(self):
         """현재 설정을 새 템플릿으로 저장"""
@@ -2624,42 +3746,49 @@ class ModernLogGenerator(QMainWindow):
         elements_container = QWidget()
         elements_layout = QVBoxLayout(elements_container)
         elements_layout.setContentsMargins(20, 0, 0, 0)  # 왼쪽 들여쓰기
+
+        # 봇 이름 설정
+        bot_name_container = QWidget()
+        bot_name_layout = QHBoxLayout(bot_name_container)
+        bot_name_layout.setContentsMargins(0, 0, 0, 0)
         
-        # 프로필 이미지 표시 설정
-        show_image_layout = QHBoxLayout()
-        self.show_profile_image = ModernCheckBox("프로필 이미지 표시")
-        self.show_profile_image.setChecked(True)
-        show_image_layout.addWidget(self.show_profile_image)
-        elements_layout.addLayout(show_image_layout)
-        
-        # 봇 이름 표시 설정
-        show_name_layout = QHBoxLayout()
         self.show_bot_name = ModernCheckBox("봇 이름 표시")
         self.show_bot_name.setChecked(True)
-        show_name_layout.addWidget(self.show_bot_name)
-        elements_layout.addLayout(show_name_layout)
+        bot_name_layout.addWidget(self.show_bot_name)
+        
+        self.bot_name = QLineEdit()
+        self.bot_name.setPlaceholderText("봇 이름을 입력하세요")
+        bot_name_layout.addWidget(self.bot_name)
+        
+        self.bot_name_color = ModernColorButton(STYLES['bot_name_color'])
+        self.bot_name_color.clicked.connect(lambda: self.choose_color("bot_name"))
+        bot_name_layout.addWidget(QLabel("색상"))
+        bot_name_layout.addWidget(self.bot_name_color)
+        
+        elements_layout.addWidget(bot_name_container)
+        
+        # 프로필 이미지 표시 설정
+        self.show_profile_image = ModernCheckBox("프로필 이미지 표시")
+        self.show_profile_image.setChecked(True)
+        elements_layout.addWidget(self.show_profile_image)
         
         # 태그 표시 설정
-        show_tags_layout = QHBoxLayout()
         self.show_tags = ModernCheckBox("태그 표시")
         self.show_tags.setChecked(True)
-        show_tags_layout.addWidget(self.show_tags)
-        elements_layout.addLayout(show_tags_layout)
+        elements_layout.addWidget(self.show_tags)
         
         # 구분선 표시 설정
-        show_divider_layout = QHBoxLayout()
         self.show_divider = ModernCheckBox("구분선 표시")
         self.show_divider.setChecked(True)
-        show_divider_layout.addWidget(self.show_divider)
-        elements_layout.addLayout(show_divider_layout)
+        self.show_divider.stateChanged.connect(self.update_divider_settings_state)
+        elements_layout.addWidget(self.show_divider)
         
         profile_elements_layout.addWidget(elements_container)
         group.addLayout(profile_elements_layout)
 
-        # 프레임 스타일 선택 부분 수정
+        # 프레임 스타일 선택
         frame_style_layout = QHBoxLayout()
         frame_style_layout.addWidget(QLabel("프레임 스타일"))
-        # 프레임 스타일 선택
         self.frame_style = ModernComboBox()
         self.frame_style.addItems(["배너", "동그라미", "직사각형"])
         self.frame_style.currentTextChanged.connect(self.update_size_inputs)
@@ -2671,7 +3800,7 @@ class ModernLogGenerator(QMainWindow):
         self.size_info_label.setStyleSheet(f"color: {STYLES['text_secondary']};")
         group.addWidget(self.size_info_label)
 
-        # 크기 설정 컨테이너
+        # 크기 설정
         size_group = QWidget()
         self.size_layout = QGridLayout(size_group)
         
@@ -2699,13 +3828,12 @@ class ModernLogGenerator(QMainWindow):
         url_layout = QVBoxLayout()
         url_layout.addWidget(QLabel("이미지 URL"))
         self.image_url = QLineEdit()
-        self.image_url.setPlaceholderText("https://example.com/image.jpg")
+        self.image_url.setPlaceholderText("<img src=\"//ac.namu.la/20241030sac/[해시값].png?expires=1730359671&key=[키값]\" class=\"fr-fic fr-dii\">")
         url_layout.addWidget(self.image_url)
         group.addLayout(url_layout)
 
-        # 이미지 스타일 설정 (URL 입력칸 바로 아래)
+        # 이미지 스타일 설정
         style_layout = QVBoxLayout()
-        style_layout.setContentsMargins(0, STYLES['spacing_small'], 0, 0)
         
         # 테두리 설정
         border_layout = QHBoxLayout()
@@ -2717,29 +3845,134 @@ class ModernLogGenerator(QMainWindow):
         self.profile_border_color = ModernColorButton(STYLES['profile_border_color'])
         self.profile_border_color.clicked.connect(lambda: self.choose_color("profile_border"))
         border_layout.addWidget(self.profile_border_color)
-        border_layout.addStretch()
         style_layout.addLayout(border_layout)
         
-        # 그림자 설정 - 단순히 ON/OFF만 가능하도록 수정
+        # 그림자 설정
         shadow_layout = QHBoxLayout()
         self.show_profile_shadow = ModernCheckBox("그림자 효과")
         self.show_profile_shadow.setChecked(True)
         shadow_layout.addWidget(self.show_profile_shadow)
-        shadow_layout.addStretch()
         style_layout.addLayout(shadow_layout)
         
         group.addLayout(style_layout)
 
-        # 상태 업데이트 연결
-        self.show_profile_border.stateChanged.connect(self.update_profile_style_states)
-        self.show_profile_shadow.stateChanged.connect(self.update_profile_style_states)
+        # 구분선 설정 섹션 추가
+        divider_section = QWidget()
+        divider_layout = QVBoxLayout(divider_section)
+        divider_layout.setSpacing(STYLES['spacing_small'])
+        
+        # 구분선 제목
+        divider_title = QLabel("구분선 설정")
+        divider_layout.addWidget(divider_title)
+
+        # 구분선 설정 컨테이너
+        self.divider_settings_container = QWidget()
+        divider_settings_layout = QVBoxLayout(self.divider_settings_container)
+        divider_settings_layout.setContentsMargins(20, 0, 0, 0)  # 왼쪽 들여쓰기
+
+        # 스타일 선택
+        style_layout = QHBoxLayout()
+        style_layout.addWidget(QLabel("스타일"))
+        self.divider_style = ModernComboBox()
+        self.divider_style.addItems(["그라데이션", "단색"])
+        self.divider_style.currentTextChanged.connect(self.toggle_divider_color_settings)
+        style_layout.addWidget(self.divider_style)
+        divider_settings_layout.addLayout(style_layout)
+
+        # 굵기 설정
+        thickness_layout = QHBoxLayout()
+        thickness_layout.addWidget(QLabel("굵기"))
+        self.divider_thickness = ModernSpinBox()  # ModernSpinBox 대신 QSpinBox 사용
+        self.divider_thickness.setRange(1, 4)
+        self.divider_thickness.setValue(1)
+        self.divider_thickness.setSuffix("px")
+        self.divider_thickness.setFixedWidth(70)
+        thickness_layout.addWidget(self.divider_thickness)
+        
+        thickness_info = QLabel("(1~4px)")
+        thickness_info.setStyleSheet(f"color: {STYLES['text_secondary']};")
+        thickness_layout.addWidget(thickness_info)
+        thickness_layout.addStretch()
+        
+        divider_settings_layout.addLayout(thickness_layout)
+
+        # 그라데이션 설정
+        self.gradient_settings = QWidget()
+        gradient_layout = QVBoxLayout(self.gradient_settings)
+        
+        # 외부 색상
+        outer_color_layout = QHBoxLayout()
+        outer_color_layout.addWidget(QLabel("외부 색상"))
+        self.divider_outer_color = ModernColorButton(STYLES['divider_outer_color'])
+        self.divider_outer_color.clicked.connect(lambda: self.choose_color("divider_outer"))
+        outer_color_layout.addWidget(self.divider_outer_color)
+        gradient_layout.addLayout(outer_color_layout)
+        
+        # 내부 색상
+        inner_color_layout = QHBoxLayout()
+        inner_color_layout.addWidget(QLabel("내부 색상"))
+        self.divider_inner_color = ModernColorButton(STYLES['divider_inner_color'])
+        self.divider_inner_color.clicked.connect(lambda: self.choose_color("divider_inner"))
+        inner_color_layout.addWidget(self.divider_inner_color)
+        gradient_layout.addLayout(inner_color_layout)
+        
+        divider_settings_layout.addWidget(self.gradient_settings)
+        
+        # 단색 설정
+        self.solid_settings = QWidget()
+        solid_layout = QHBoxLayout(self.solid_settings)
+        solid_layout.addWidget(QLabel("선 색상"))
+        self.divider_solid_color = ModernColorButton(STYLES['divider_outer_color'])
+        self.divider_solid_color.clicked.connect(lambda: self.choose_color("divider_solid"))
+        solid_layout.addWidget(self.divider_solid_color)
+        
+        divider_settings_layout.addWidget(self.solid_settings)
+
+        divider_layout.addWidget(self.divider_settings_container)
+        group.addWidget(divider_section)
+
+        # 초기 구분선 스타일 설정
+        self.toggle_divider_color_settings(self.divider_style.currentText())
+        self.update_divider_settings_state()
+
+        # 구분선 추가
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet(f"background-color: {STYLES['border']};")
+        group.addWidget(line)
+
+        # 프로필 관리 버튼들
+        buttons_layout = QGridLayout()
+        buttons_layout.setSpacing(8)  # 버튼 간격 설정
+
+        # 프로필 저장 버튼
+        save_btn = ModernButton("프로필 저장")
+        save_btn.clicked.connect(self.profile_manager.save_profile_set_dialog)
+        buttons_layout.addWidget(save_btn, 0, 0)
+        
+        # 프로필 불러오기 버튼
+        load_btn = ModernButton("프로필 불러오기")
+        load_btn.clicked.connect(self.profile_manager.load_profile_set_dialog)
+        buttons_layout.addWidget(load_btn, 0, 1)
+        
+        # 프로필 삭제 버튼
+        delete_btn = ModernButton("프로필 삭제")
+        delete_btn.clicked.connect(self.profile_manager.delete_profile_set_dialog)
+        buttons_layout.addWidget(delete_btn, 1, 0, 1, 2)
+
+        group.addLayout(buttons_layout)
 
         # 초기 상태 설정
         self.update_size_inputs(self.frame_style.currentText())
         self.update_profile_element_states()
         self.update_profile_style_states()
-
+        
         return group
+
+    def update_divider_settings_state(self):
+        """구분선 설정 상태 업데이트"""
+        is_divider_enabled = self.show_divider.isChecked()
+        self.divider_settings_container.setEnabled(is_divider_enabled)
 
     def update_profile_element_states(self):
         """프로필 요소들의 활성화 상태 업데이트"""
@@ -2801,26 +4034,6 @@ class ModernLogGenerator(QMainWindow):
             margin-top: 4px;
         """)
 
-    def create_bot_settings(self):
-        """봇 설정 그룹 생성"""
-        group = SettingsGroup("봇 설정")
-        
-        # 봇 이름
-        name_layout = QHBoxLayout()
-        name_layout.addWidget(QLabel("봇 이름"))
-        self.bot_name = QLineEdit()
-        self.bot_name.setPlaceholderText("봇 이름을 입력하세요")
-        name_layout.addWidget(self.bot_name)
-        
-        # 봇 이름 색상
-        self.bot_name_color = ModernColorButton(STYLES['bot_name_color'])
-        self.bot_name_color.clicked.connect(lambda: self.choose_color("bot_name"))
-        name_layout.addWidget(QLabel("색상"))
-        name_layout.addWidget(self.bot_name_color)
-        
-        group.addLayout(name_layout)
-        return group
-
     def create_tag_settings(self):
         """태그 설정 그룹 생성"""
         group = SettingsGroup("태그 설정")
@@ -2832,11 +4045,11 @@ class ModernLogGenerator(QMainWindow):
             QScrollArea {{
                 border: 1px solid {STYLES['border']};
                 border-radius: {STYLES['radius_normal']}px;
-                background: {STYLES['background']};  /* 배경색을 background로 변경 */
+                background: {STYLES['background']};
                 min-height: 200px;
             }}
             QWidget {{
-                background: {STYLES['background']};  /* 내부 위젯 배경색도 동일하게 설정 */
+                background: {STYLES['background']};
             }}
             {self.get_scrollbar_style()}
         """)
@@ -2856,26 +4069,55 @@ class ModernLogGenerator(QMainWindow):
 
         # 기본 태그 3개 추가
         default_tags = [
-            {"text": "모델", "color": "#E3E3E8", "style": "기본"},
-            {"text": "프롬프트", "color": "#E3E3E8", "style": "기본"},
-            {"text": "번역", "color": "#E3E3E8", "style": "기본"}
+            {"text": "모델", "color": "#E3E3E8", "text_color": "#000000", "style": "기본"},
+            {"text": "프롬프트", "color": "#E3E3E8", "text_color": "#000000", "style": "기본"},
+            {"text": "번역", "color": "#E3E3E8", "text_color": "#000000", "style": "기본"}
         ]
         
         for tag_data in default_tags:
             self.add_new_tag(tag_data)
 
-        # 태그 관리 버튼 컨테이너
-        button_container = QWidget()
-        button_layout = QHBoxLayout(button_container)
-        button_layout.setContentsMargins(0, 10, 0, 0)
-        button_layout.setSpacing(8)
+        # 버튼들을 위한 컨테이너
+        buttons_container = QWidget()
+        buttons_layout = QVBoxLayout(buttons_container)
+        buttons_layout.setSpacing(8)  # 버튼 간격 설정
+        buttons_layout.setContentsMargins(0, 10, 0, 0)  # 위쪽 여백 추가
 
         # 태그 추가 버튼
         add_btn = ModernButton("+ 태그 추가")
         add_btn.clicked.connect(lambda: self.add_new_tag())
-        button_layout.addWidget(add_btn)
+        buttons_layout.addWidget(add_btn)
 
-        group.addWidget(button_container)
+        # 구분선 추가
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet(f"background-color: {STYLES['border']};")
+        buttons_layout.addWidget(line)
+
+        # 태그 관리 버튼들을 위한 그리드 레이아웃
+        tag_management_layout = QGridLayout()
+        tag_management_layout.setSpacing(8)  # 버튼 간격 설정
+
+        # 태그 저장 버튼
+        save_btn = ModernButton("태그 저장")
+        save_btn.clicked.connect(self.tag_manager.save_tag_set_dialog)
+        tag_management_layout.addWidget(save_btn, 0, 0)
+        
+        # 태그 불러오기 버튼
+        load_btn = ModernButton("태그 불러오기")
+        load_btn.clicked.connect(self.tag_manager.load_tag_set_dialog)
+        tag_management_layout.addWidget(load_btn, 0, 1)
+        
+        # 태그 삭제 버튼
+        delete_btn = ModernButton("태그 삭제")
+        delete_btn.clicked.connect(self.tag_manager.delete_tag_set_dialog)
+        tag_management_layout.addWidget(delete_btn, 1, 0, 1, 2)  # 마지막 버튼은 전체 너비 사용
+
+        # 그리드 레이아웃을 메인 버튼 레이아웃에 추가
+        buttons_layout.addLayout(tag_management_layout)
+        
+        # 버튼 컨테이너를 그룹에 추가
+        group.addWidget(buttons_container)
         
         return group
 
@@ -2967,83 +4209,31 @@ class ModernLogGenerator(QMainWindow):
         # 정렬된 태그 다시 추가
         for tag_data in tags:
             self.add_new_tag(tag_data)
-        
-
-    def create_divider_settings(self):
-        """구분선 설정 그룹 생성"""
-        group = SettingsGroup("구분선 설정")
-        
-        # 스타일 선택
-        style_layout = QHBoxLayout()
-        style_layout.addWidget(QLabel("스타일"))
-        self.divider_style = ModernComboBox()
-        self.divider_style.addItems(["그라데이션", "단색"])
-        self.divider_style.currentTextChanged.connect(self.toggle_divider_color_settings)
-        style_layout.addWidget(self.divider_style)
-        group.addLayout(style_layout)
-
-        # 굵기 설정
-        thickness_layout = QHBoxLayout()
-        thickness_layout.addWidget(QLabel("굵기"))
-        self.divider_thickness = ModernSpinBox()
-        self.divider_thickness.setRange(1, 4)
-        self.divider_thickness.setValue(1)
-        self.divider_thickness.setSuffix("px")
-        self.divider_thickness.setFixedWidth(70)
-        thickness_layout.addWidget(self.divider_thickness)
-        
-        # 설명 레이블 추가
-        info_label = QLabel("(1~4px)")
-        info_label.setStyleSheet(f"color: {STYLES['text_secondary']};")
-        thickness_layout.addWidget(info_label)
-        
-        # 나머지 공간을 채우기 위한 스트레치 추가
-        thickness_layout.addStretch()
-        
-        group.addLayout(thickness_layout)  # 여기서 한 번만 추가!
-        
-        # 그라데이션 설정
-        # ... (나머지 코드는 그대로 유지)
-        
-        # 그라데이션 설정
-        self.gradient_settings = QWidget()
-        gradient_layout = QVBoxLayout(self.gradient_settings)
-        gradient_layout.setSpacing(STYLES['spacing_normal'])
-        
-        # 외부 색상
-        outer_color_layout = QHBoxLayout()
-        outer_color_layout.addWidget(QLabel("외부 색상"))
-        self.divider_outer_color = ModernColorButton(STYLES['divider_outer_color'])
-        self.divider_outer_color.clicked.connect(lambda: self.choose_color("divider_outer"))
-        outer_color_layout.addWidget(self.divider_outer_color)
-        gradient_layout.addLayout(outer_color_layout)
-        
-        # 내부 색상
-        inner_color_layout = QHBoxLayout()
-        inner_color_layout.addWidget(QLabel("내부 색상"))
-        self.divider_inner_color = ModernColorButton(STYLES['divider_inner_color'])
-        self.divider_inner_color.clicked.connect(lambda: self.choose_color("divider_inner"))
-        inner_color_layout.addWidget(self.divider_inner_color)
-        gradient_layout.addLayout(inner_color_layout)
-        
-        group.addWidget(self.gradient_settings)
-        
-        # 단색 설정
-        self.solid_settings = QWidget()
-        solid_layout = QHBoxLayout(self.solid_settings)
-        solid_layout.addWidget(QLabel("선 색상"))
-        self.divider_solid_color = ModernColorButton(STYLES['divider_outer_color'])
-        self.divider_solid_color.clicked.connect(lambda: self.choose_color("divider_solid"))
-        solid_layout.addWidget(self.divider_solid_color)
-        
-        group.addWidget(self.solid_settings)
-        self.toggle_divider_color_settings(self.divider_style.currentText())
-        
-        return group
 
     def create_text_settings(self):
         """텍스트 설정 그룹 생성"""
         group = SettingsGroup("텍스트 설정")
+        
+        # 텍스트 설정 매니저 초기화
+        self.text_settings_manager = TextSettingsManager(self)
+        
+        # 설정 관리 버튼 컨테이너
+        buttons_container = QWidget()
+        buttons_layout = QHBoxLayout(buttons_container)
+        buttons_layout.setContentsMargins(0, 0, 0, STYLES['spacing_normal'])
+        
+        # 설정 저장 버튼
+        save_btn = ModernButton("설정 저장")
+        save_btn.clicked.connect(self.text_settings_manager.save_current_settings)
+        buttons_layout.addWidget(save_btn)
+        
+        # 설정 불러오기 버튼
+        load_btn = ModernButton("설정 불러오기")
+        load_btn.clicked.connect(self.show_text_settings_menu)
+        buttons_layout.addWidget(load_btn)
+        
+        buttons_layout.addStretch()
+        group.addWidget(buttons_container)
         
         # 들여쓰기 컨테이너
         indent_container = QWidget()
@@ -3083,7 +4273,7 @@ class ModernLogGenerator(QMainWindow):
         
         # 텍스트 크기 활성화 체크박스
         self.use_text_size = ModernCheckBox("텍스트 크기 조절 사용")
-        self.use_text_size.setChecked(False)  # 기본값은 비활성화
+        self.use_text_size.setChecked(True)
         self.use_text_size.stateChanged.connect(self.update_text_size_state)
         text_size_layout.addWidget(self.use_text_size)
         
@@ -3106,28 +4296,88 @@ class ModernLogGenerator(QMainWindow):
         
         group.addWidget(text_size_container)
 
+        # 대화문 색상 및 스타일
+        dialog_settings = QWidget()
+        dialog_layout = QVBoxLayout(dialog_settings)
+        dialog_layout.setSpacing(STYLES['spacing_small'])
+        
+        # 대화문 헤더
+        dialog_header = QLabel("대화문 설정")
+        dialog_header.setStyleSheet(f"color: {STYLES['text']}; font-weight: bold;")
+        dialog_layout.addWidget(dialog_header)
+        
         # 대화문 색상
         dialog_color_layout = QHBoxLayout()
+        dialog_color_layout.setContentsMargins(20, 0, 0, 0)
         dialog_color_layout.addWidget(QLabel("대화문 색상"))
         self.dialog_color = ModernColorButton(STYLES['dialog_color'])
         self.dialog_color.clicked.connect(lambda: self.choose_color("dialog"))
         dialog_color_layout.addWidget(self.dialog_color)
-        group.addLayout(dialog_color_layout)
+        dialog_layout.addLayout(dialog_color_layout)
         
+        # 대화문 설정에 줄바꿈 토글 추가
+        dialog_bold_layout = QHBoxLayout()
+        dialog_bold_layout.setContentsMargins(20, 0, 0, 0)
+        self.dialog_bold = ModernCheckBox("대화문 굵게")
+        self.dialog_bold.setChecked(True)
+        dialog_bold_layout.addWidget(self.dialog_bold)
+        
+        # 대화문 줄바꿈 설정 추가
+        self.dialog_newline = ModernCheckBox("대화문 줄바꿈")
+        self.dialog_newline.setChecked(True)  # 기본값 On
+        dialog_bold_layout.addWidget(self.dialog_newline)
+        dialog_layout.addLayout(dialog_bold_layout)
+        
+        group.addWidget(dialog_settings)
+
+        # 속마음 설정 추가
+        inner_thoughts_settings = QWidget()
+        inner_thoughts_layout = QVBoxLayout(inner_thoughts_settings)
+        inner_thoughts_layout.setSpacing(STYLES['spacing_small'])
+        
+        # 속마음 헤더
+        inner_thoughts_header = QLabel("속마음 설정")
+        inner_thoughts_layout.addWidget(inner_thoughts_header)
+        
+        # 속마음 색상
+        inner_thoughts_color_layout = QHBoxLayout()
+        inner_thoughts_color_layout.setContentsMargins(20, 0, 0, 0)
+        inner_thoughts_color_layout.addWidget(QLabel("속마음 색상"))
+        self.inner_thoughts_color = ModernColorButton(STYLES['dialog_color'])
+        self.inner_thoughts_color.clicked.connect(lambda: self.choose_color("inner_thoughts"))
+        inner_thoughts_color_layout.addWidget(self.inner_thoughts_color)
+        inner_thoughts_layout.addLayout(inner_thoughts_color_layout)
+        
+        # 속마음 굵기 설정 수정 (기본값 Off)
+        inner_thoughts_bold_layout = QHBoxLayout()
+        inner_thoughts_bold_layout.setContentsMargins(20, 0, 0, 0)
+        self.inner_thoughts_bold = ModernCheckBox("속마음 굵게")
+        self.inner_thoughts_bold.setChecked(False)  # 기본값을 False로 변경
+        inner_thoughts_bold_layout.addWidget(self.inner_thoughts_bold)
+        inner_thoughts_layout.addLayout(inner_thoughts_bold_layout)
+        
+        group.addWidget(inner_thoughts_settings)
+
         # 나레이션 색상
+        narration_settings = QWidget()
+        narration_layout = QVBoxLayout(narration_settings)
+        narration_layout.setSpacing(STYLES['spacing_small'])
+        
+        # 나레이션 헤더
+        narration_header = QLabel("나레이션 설정")
+        narration_header.setStyleSheet(f"color: {STYLES['text']}; font-weight: bold;")
+        narration_layout.addWidget(narration_header)
+        
+        # 나레이션 색상 설정
         narration_color_layout = QHBoxLayout()
+        narration_color_layout.setContentsMargins(20, 0, 0, 0)
         narration_color_layout.addWidget(QLabel("나레이션 색상"))
         self.narration_color = ModernColorButton(STYLES['narration_color'])
         self.narration_color.clicked.connect(lambda: self.choose_color("narration"))
         narration_color_layout.addWidget(self.narration_color)
-        group.addLayout(narration_color_layout)
-
-        # 대화문 굵기 설정
-        dialog_bold_layout = QHBoxLayout()
-        self.dialog_bold = ModernCheckBox("대화문 굵게")
-        self.dialog_bold.setChecked(True)
-        dialog_bold_layout.addWidget(self.dialog_bold)
-        group.addLayout(dialog_bold_layout)
+        narration_layout.addLayout(narration_color_layout)
+        
+        group.addWidget(narration_settings)
         
         # 전처리 옵션
         preprocess_layout = QVBoxLayout()
@@ -3147,6 +4397,35 @@ class ModernLogGenerator(QMainWindow):
         
         return group
 
+
+    def show_text_settings_menu(self):
+        """텍스트 설정 관리 메뉴 표시"""
+        menu = QMenu(self)
+        
+        if self.text_settings_manager.settings:
+            # 저장된 설정 불러오기 메뉴
+            load_menu = menu.addMenu("설정 불러오기")
+            delete_menu = menu.addMenu("설정 삭제")
+            
+            for name in sorted(self.text_settings_manager.settings.keys()):
+                # 불러오기 메뉴
+                load_action = load_menu.addAction(name)
+                load_action.triggered.connect(
+                    lambda checked, n=name: self.text_settings_manager.load_settings_by_name(n)
+                )
+                
+                # 삭제 메뉴
+                delete_action = delete_menu.addAction(name)
+                delete_action.triggered.connect(
+                    lambda checked, n=name: self.text_settings_manager.delete_settings(n)
+                )
+        else:
+            no_settings_action = menu.addAction("저장된 설정 없음")
+            no_settings_action.setEnabled(False)
+        
+        menu.exec(QCursor.pos())
+
+
     def update_indent_state(self):
         """들여쓰기 설정 상태 업데이트"""
         is_indent_enabled = self.use_text_indent.isChecked()
@@ -3155,23 +4434,56 @@ class ModernLogGenerator(QMainWindow):
     def create_word_replace_settings(self):
         """단어 변경 설정 그룹 생성"""
         group = SettingsGroup("단어 변경")
-    
+        
         # 단어 변경 입력 컨테이너
         self.word_replace_container = QWidget()
         self.word_replace_layout = QVBoxLayout(self.word_replace_container)
         self.word_replace_layout.setSpacing(STYLES['spacing_small'])
-    
+        
         # 기본 항목 3개 추가
         for _ in range(3):
             self.add_word_replace_entry()
-    
+        
         group.addWidget(self.word_replace_container)
-    
+        
+        # 버튼 컨테이너
+        buttons_container = QWidget()
+        buttons_layout = QVBoxLayout(buttons_container)
+        buttons_layout.setSpacing(8)
+        
         # 항목 추가 버튼
         add_btn = ModernButton("+ 항목 추가")
         add_btn.clicked.connect(self.add_word_replace_entry)
-        group.addWidget(add_btn)
-    
+        buttons_layout.addWidget(add_btn)
+
+        # 구분선
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet(f"background-color: {STYLES['border']};")
+        buttons_layout.addWidget(line)
+
+        # 단어 변경 세트 관리 버튼들
+        management_layout = QGridLayout()
+        management_layout.setSpacing(8)
+        
+        # 저장 버튼
+        save_btn = ModernButton("단어 변경 저장")
+        save_btn.clicked.connect(self.word_replace_manager.save_word_set_dialog)
+        management_layout.addWidget(save_btn, 0, 0)
+        
+        # 불러오기 버튼
+        load_btn = ModernButton("단어 변경 불러오기")
+        load_btn.clicked.connect(self.word_replace_manager.load_word_set_dialog)
+        management_layout.addWidget(load_btn, 0, 1)
+        
+        # 삭제 버튼
+        delete_btn = ModernButton("단어 변경 삭제")
+        delete_btn.clicked.connect(self.word_replace_manager.delete_word_set_dialog)
+        management_layout.addWidget(delete_btn, 1, 0, 1, 2)  # 마지막 버튼은 전체 너비 사용
+        
+        buttons_layout.addLayout(management_layout)
+        group.addWidget(buttons_container)
+        
         return group
 
 
@@ -3538,14 +4850,6 @@ class ModernLogGenerator(QMainWindow):
         # 입력 영역
         input_group = SettingsGroup("텍스트 입력")
         
-        rules_label = QLabel(
-            "◆ 작성 규칙\n"
-            "1. 대화문은 따옴표(\")로 시작하고 끝나야 함\n"
-            "2. 빈 줄로 문단 구분"
-        )
-        rules_label.setStyleSheet(f"color: {STYLES['text_secondary']};")
-        input_group.addWidget(rules_label)
-        
         self.input_text = QTextEdit()
         self.input_text.setPlaceholderText("여기에 텍스트를 입력하세요...")
         input_group.addWidget(self.input_text)
@@ -3580,56 +4884,79 @@ class ModernLogGenerator(QMainWindow):
 
     def choose_color(self, target):
         """색상 선택 다이얼로그"""
-        initial_color = None
-        
-        # 초기 색상 가져오기
-        if target == "outer_box":
-            initial_color = self.outer_box_color.get_color()
-        elif target == "inner_box":
-            initial_color = self.inner_box_color.get_color()
-        elif target == "single_box":
-            initial_color = self.single_box_color.get_color()
-        elif target == "profile_border":
-            initial_color = self.profile_border_color.get_color()
-        elif target == "bot_name":
-            initial_color = self.bot_name_color.get_color()
-        elif target == "dialog":
-            initial_color = self.dialog_color.get_color()
-        elif target == "narration":
-            initial_color = self.narration_color.get_color()
-        elif target == "divider_outer":
-            initial_color = self.divider_outer_color.get_color()
-        elif target == "divider_inner":
-            initial_color = self.divider_inner_color.get_color()
-        elif target == "divider_solid":
-            initial_color = self.divider_solid_color.get_color()
-
-        # QColorDialog 직접 사용
-        color = QColorDialog.getColor(QColor(initial_color), self, options=QColorDialog.ColorDialogOption.DontUseNativeDialog)
-        
-        if color.isValid():
-            # 선택된 색상 적용
-            if target == "outer_box":
-                self.outer_box_color.setColor(color.name())
-            elif target == "inner_box":
-                self.inner_box_color.setColor(color.name())
-            elif target == "single_box":
-                self.single_box_color.setColor(color.name())
-                self.inner_box_color.setColor(color.name())
-            elif target == "profile_border":
-                self.profile_border_color.setColor(color.name())
-            elif target == "bot_name":
-                self.bot_name_color.setColor(color.name())
-            elif target == "dialog":
-                self.dialog_color.setColor(color.name())
-            elif target == "narration":
-                self.narration_color.setColor(color.name())
-            elif target == "divider_outer":
-                self.divider_outer_color.setColor(color.name())
-            elif target == "divider_inner":
-                self.divider_inner_color.setColor(color.name())
-            elif target == "divider_solid":
-                self.divider_solid_color.setColor(color.name())
+        try:
+            current_color = None
+            color_button = None
+            
+            color_mappings = {
+                "outer_box": (self.outer_box_color, "외부 박스"),
+                "inner_box": (self.inner_box_color, "내부 박스"),
+                "profile_border": (self.profile_border_color, "프로필 테두리"),
+                "bot_name": (self.bot_name_color, "봇 이름"),
+                "dialog": (self.dialog_color, "대화문"),
+                "narration": (self.narration_color, "나레이션"),
+                "inner_thoughts": (self.inner_thoughts_color, "속마음"),
+                "divider_outer": (self.divider_outer_color, "구분선 외부"),
+                "divider_inner": (self.divider_inner_color, "구분선 내부"),
+                "divider_solid": (self.divider_solid_color, "구분선"),
+                "box_border": (self.box_border_color, "로그박스 테두리"),
+                "image_border": (self.image_border_color, "이미지 테두리")
+            }
+            
+            if target in color_mappings:
+                color_button, title = color_mappings[target]
+                current_color = color_button.get_color()
+            
+            if not color_button:
+                return
+                
+            dialog = QColorDialog(self)
+            dialog.setWindowTitle(f"{title} 색상 선택")
+            dialog.setCurrentColor(QColor(current_color))
+            dialog.setOption(QColorDialog.ColorDialogOption.DontUseNativeDialog)
+            
+            if dialog.exec() == QColorDialog.DialogCode.Accepted:
+                new_color = dialog.selectedColor()
+                if new_color.isValid():
+                    color_button.setColor(new_color.name())
+                    
+                    # 현재 선택된 템플릿 이름 가져오기
+                    current_template = self.template_combo.currentText()
+                    
+                    # 템플릿이 "커스텀"이 아닌 경우에만 해당 템플릿 업데이트
+                    if current_template != "커스텀":
+                        # 템플릿 매니저의 templates 딕셔너리 업데이트
+                        template_colors = self.template_manager.templates[current_template]["theme"]["colors"]
+                        
+                        # 색상 매핑 정의
+                        color_to_template_key = {
+                            "outer_box": "outer_box",
+                            "inner_box": "inner_box",
+                            "bot_name": "bot_name",
+                            "dialog": "dialog",
+                            "narration": "narration",
+                            "inner_thoughts": "inner_thoughts",
+                            "profile_border": "profile_border",
+                            "divider_outer": "divider_outer",
+                            "divider_inner": "divider_inner",
+                            "box_border": "box_border",
+                            "image_border": "image_border"
+                        }
+                        
+                        # 선택된 색상을 템플릿에 업데이트
+                        if target in color_to_template_key:
+                            template_key = color_to_template_key[target]
+                            template_colors[template_key] = new_color.name()
+                    
+                    self.update_preview()
+                    
+        except Exception as e:
+            print(f"색상 선택 중 오류 발생: {str(e)}")
+            QMessageBox.warning(
+                self,
+                "오류",
+                f"색상 선택 중 오류가 발생했습니다: {str(e)}"
+            )
 
     def choose_tag_color(self, tag_index):
         """태그 색상 선택"""
@@ -3644,86 +4971,121 @@ class ModernLogGenerator(QMainWindow):
         self.solid_settings.setVisible(not is_gradient)
 
     def process_image_tags(self, content):
-        """이미지 태그 처리 - 다양한 형식 지원"""
+        """이미지 태그 처리 - 성능 개선 버전"""
         if not content:
             return content
+            
+        try:
+            # 1. URL 매핑 한 번만 수집
+            url_mappings = self._collect_url_mappings()
+            
+            # 2. 스타일 설정 한 번만 생성
+            style_settings = self.get_image_style_settings()
+            base_style = self._create_base_style(style_settings)
+            
+            # 3. 태그 변환 함수
+            def replace_tag(match):
+                try:
+                    full_match = match.group(0)
+                    
+                    # 3.1 따옴표 정규화
+                    full_match = full_match.replace('″', '"').replace('"', '"').replace('"', '"')
+                    
+                    # 3.2 태그 추출
+                    tag = self._extract_tag_from_match(full_match)
+                    
+                    # 3.3 매핑된 URL이 있으면 HTML 생성
+                    if tag and tag in url_mappings:
+                        return self._create_image_html(
+                            url_mappings[tag],
+                            tag,
+                            base_style
+                        )
+                        
+                    return full_match
+                    
+                except Exception as e:
+                    print(f"태그 처리 중 오류: {str(e)}")
+                    return full_match
 
-        # URL 매핑 수집
-        url_mappings = {}
+            # 4. 모든 패턴에 대해 처리
+            result = content
+            for pattern in self._get_image_patterns():
+                result = re.sub(pattern, replace_tag, result)
+            
+            return result
+            
+        except Exception as e:
+            print(f"이미지 처리 중 오류: {str(e)}")
+            return content
+
+    def _collect_url_mappings(self):
+        """URL 매핑 수집"""
+        mappings = {}
         for entry in self.image_url_container.findChildren(ImageUrlEntry):
             tag = entry.tag_input.text().strip()
             url = entry.url_input.text().strip()
             if tag and url:
+                if 'style="width: 0px; height: 0px;"' in url:
+                    url = url.replace('style="width: 0px; height: 0px;"', '')
                 tag = self._extract_tag_identifier(tag)
                 url = self._clean_url(url)
-                url_mappings[tag] = url
+                mappings[tag] = url
+        return mappings
 
-        # 전역 이미지 스타일 설정 가져오기
-        style_settings = self.get_image_style_settings()
+    def _create_base_style(self, settings):
+        """기본 이미지 스타일 생성"""
+        style = f"""
+            max-width:{settings['size']}%;
+            margin:{settings['margin']}px 0;
+            border-radius:12px;
+        """
+        
+        if settings['use_border']:
+            style += f"border:2px solid {settings['border_color']};"
+        if settings['use_shadow']:
+            style += "box-shadow:rgba(0,0,0,0.12) 0px 4px 16px;"
+            
+        return style
 
-        def replace_tag(match):
-            """태그를 HTML로 변환"""
-            try:
-                full_match = match.group(0)
-                tag = None
-                
-                if '{{' in full_match:
-                    if 'img::' in full_match or 'image::' in full_match:
-                        tag = full_match.split('::')[1].rstrip('}}').strip('"\'')
-                    elif 'img=' in full_match or 'image=' in full_match:
-                        tag = full_match.split('=')[1].strip('{}"\' ')
-                elif '<img' in full_match or '<image' in full_match:
-                    if 'src=' in full_match:
-                        tag_match = re.search(r'src=[\'"](.*?)[\'"]', full_match)
-                        if tag_match:
-                            tag = tag_match.group(1)
-                    else:
-                        tag_match = re.search(r'=([\'"](.*?)[\'"])', full_match)
-                        if tag_match:
-                            tag = tag_match.group(2)
-                
-                if tag and tag in url_mappings:
-                    url = url_mappings[tag]
+    def _extract_tag_from_match(self, full_match):
+        """태그 추출"""
+        tag = None
+        
+        if '{{' in full_match:
+            if 'img::' in full_match or 'image::' in full_match:
+                tag = full_match.split('::')[1].rstrip('}}').strip('"\'')
+            elif 'img=' in full_match or 'image=' in full_match:
+                tag = full_match.split('=')[1].strip('{}"\' ')
+        elif '<img' in full_match or '<image' in full_match:
+            if 'src=' in full_match:
+                tag_match = re.search(r'src=[\'"″""](.*?)[\'"″""]', full_match)
+                if tag_match:
+                    tag = tag_match.group(1)
+            else:
+                tag_match = re.search(r'=([\'"″""](.*?)[\'"″""])', full_match)
+                if tag_match:
+                    tag = tag_match.group(2)
                     
-                    # 전역 스타일 설정 적용
-                    style = f"""
-                        max-width:{style_settings['size']}%;
-                        margin:{style_settings['margin']}px 0;
-                        border-radius:12px;
-                    """
-                    
-                    if style_settings['use_border']:
-                        style += f"border:2px solid {style_settings['border_color']};"
-                        
-                    if style_settings['use_shadow']:
-                        style += "box-shadow:rgba(0,0,0,0.12) 0px 4px 16px;"
-                    
-                    return f'''
-                        <div style="margin-bottom:1rem; width:100%; text-align:center;">
-                            <img style="{style}" 
-                                src="{url}" alt="{tag}" class="fr-fic fr-dii">
-                        </div>
-                    '''
-                return full_match
-                    
-            except Exception as e:
-                print(f"Error processing tag {full_match}: {str(e)}")
-                return full_match
+        return tag
 
-        # 이미지 태그 패턴
-        patterns = [
-            r'\{\{(img|image)::[\'""]*[^}]+[\'""]*\}\}',
-            r'\{\{(img|image)=[\'""]*[^}]+[\'""]*\}\}',
-            r'<(img|image)\s+src=[\'""]*[^\'""]+[\'""]*>',
-            r'<(img|image)=[\'""]*[^>]+[\'""]*>'
+    def _create_image_html(self, url, tag, style):
+        """이미지 HTML 생성"""
+        return f'''
+            <div style="margin-bottom:1rem; width:100%; text-align:center;">
+                <img style="{style}" 
+                    src="{url}" alt="{tag}" class="fr-fic fr-dii">
+            </div>
+        '''
+
+    def _get_image_patterns(self):
+        """이미지 태그 패턴 목록"""
+        return [
+            r'\{\{(img|image)::[\'""″""]*[^}]+[\'""″""]*\}\}',
+            r'\{\{(img|image)=[\'""″""]*[^}]+[\'""″""]*\}\}',
+            r'<(img|image)\s+src=[\'""″""]*[^\'""″""]+[\'""″""]*>',
+            r'<(img|image)=[\'""″""]*[^>]+[\'""″""]*>'
         ]
-        
-        # 각 패턴에 대해 처리
-        result = content
-        for pattern in patterns:
-            result = re.sub(pattern, replace_tag, result)
-        
-        return result
 
     def _extract_tag_identifier(self, tag):
         """이미지 태그에서 식별자만 추출"""
@@ -3851,190 +5213,356 @@ class ModernLogGenerator(QMainWindow):
         return mappings
 
     def format_conversation(self, text):
-        """대화문 포맷팅"""
-        # 기존 코드와 동일
+        """대화문 포맷팅 - 대화문에만 선택적 줄바꿈 적용"""
         indent = self.text_indent.value() if self.use_text_indent.isChecked() else 0
         dialog_color = self.dialog_color.get_color()
+        inner_thoughts_color = self.inner_thoughts_color.get_color()
         narration_color = self.narration_color.get_color()
+        
         dialog_bold = "font-weight:bold;" if self.dialog_bold.isChecked() else ""
+        inner_thoughts_bold = "font-weight:bold;" if self.inner_thoughts_bold.isChecked() else ""
         text_size = f"font-size:{self.text_size.value()}px;" if self.use_text_size.isChecked() else ""
-
+        
         if self.convert_ellipsis.isChecked():
             text = text.replace('...', '…')
         
-        # HTML 태그나 스타일 정의를 텍스트로 처리하지 않도록 필터링
-        text = re.sub(r'<div\s+style=["\']margin-bottom:1\.5rem;["\']>', '', text)
-        text = re.sub(r'</div>', '', text)
+        # 따옴표 패턴 - 정규화하지 않고 원본 유지
+        dialog_pattern = r'([""″""].*?[""″""])'  # 모든 종류의 큰따옴표
+        inner_thoughts_pattern = r'([\'''].*?[\'''])'  # 모든 종류의 작은따옴표
         
-        # 각 줄을 개별적으로 처리
         lines = text.split('\n')
         formatted_lines = []
         
         for line in lines:
-            if not line.strip():  # 빈 줄은 브레이크 태그로 변환
+            if not line.strip():
                 formatted_lines.append('<p><br></p>')
                 continue
                 
-            # HTML 태그로 보이는 텍스트 필터링
             if line.strip().startswith('<') and line.strip().endswith('>'):
                 continue
-                
-            # 대화문 패턴 정의
-            pattern = r'(["""\"].*?["""\"])'
-            parts = re.split(pattern, line)
             
-            line_parts = []
-            for part in parts:
-                if re.match(pattern, part):
-                    # 대화문
-                    line_parts.append(
-                        f'<span style="color:{dialog_color}; {dialog_bold} {text_size} display:inline-block; text-indent:{indent}px;">{part}</span>'
-                    )
-                elif part.strip():
-                    # 나레이션
-                    line_parts.append(
-                        f'<span style="color:{narration_color}; {text_size} display:inline-block; text-indent:{indent}px;">{part.strip()}</span>'
-                    )
+            # 텍스트 처리를 위한 부분들을 저장할 리스트
+            parts_to_process = []
             
-            # 각 줄을 하나의 div로 묶음
-            if line_parts:
-                formatted_lines.append(f'<div style="margin-bottom:1rem;">{"".join(line_parts)}</div>')
+            # 대화문 처리
+            parts = re.split(dialog_pattern, line)
+            for i, part in enumerate(parts):
+                if re.match(dialog_pattern, part):
+                    # 대화문일 경우
+                    style = f"color:{dialog_color}; {dialog_bold} {text_size}"
+                    
+                    # 대화문 줄바꿈 설정이 활성화된 경우에만 줄바꿈 추가
+                    if self.dialog_newline.isChecked():
+                        content = f'<span style="{style}">{part}</span>'
+                        # 줄바꿈을 div로 감싸서 처리
+                        parts_to_process.append(f'<div style="margin-top:1em; margin-bottom:1em;">{content}</div>')
+                    else:
+                        parts_to_process.append(f'<span style="{style}">{part}</span>')
+                else:
+                    # 나레이션과 속마음 처리
+                    inner_parts = re.split(inner_thoughts_pattern, part)
+                    for inner_part in inner_parts:
+                        if re.match(inner_thoughts_pattern, inner_part):
+                            # 속마음은 줄바꿈 없이 처리
+                            style = f"color:{inner_thoughts_color}; {inner_thoughts_bold} {text_size}"
+                            parts_to_process.append(f'<span style="{style}">{inner_part}</span>')
+                        elif inner_part.strip():
+                            style = f"color:{narration_color}; {text_size}"
+                            parts_to_process.append(f'<span style="{style}">{inner_part.strip()}</span>')
+            
+            # 들여쓰기 처리
+            if self.use_text_indent.isChecked():
+                formatted_lines.append(
+                    f'<div style="margin-bottom:1rem; text-indent:{indent}px">{"".join(parts_to_process)}</div>'
+                )
+            else:
+                formatted_lines.append(
+                    f'<div style="margin-bottom:1rem;">{"".join(parts_to_process)}</div>'
+                )
         
         return '\n'.join(formatted_lines)
 
     def create_template(self, content):
         """템플릿 HTML 생성"""
         try:
-            # 박스 색상
-            box_outer_color = self.outer_box_color.get_color()
-            box_inner_color = self.inner_box_color.get_color()
-            shadow_value = self.shadow_intensity.value()
-        
-            if self.show_inner_box.isChecked():
-                # 내부 박스가 있을 때
-                background_color = box_outer_color  # 외부 박스 색상 사용
-                inner_box_style = f"""
-                    font-size:{STYLES['font_size_normal']}px;
-                    background:{box_inner_color};
-                    padding:{STYLES['spacing_large']}px;
-                    border-radius:{STYLES['radius_normal']}px;"""
-            else:
-                # 내부 박스가 없을 때는 내부 박스 색상을 전체 배경색으로 사용
-                background_color = box_inner_color  # 내부 박스 색상을 배경색으로 사용
-                inner_box_style = f"""
-                    font-size:{STYLES['font_size_normal']}px;
-                    padding:0;"""
-        
-            # 프로필 영역 HTML 생성 (프로필 표시 여부에 따라)
-            profile_section_html = ''
-            if self.show_profile.isChecked():
-                try:
-                    profile_parts = []
+            template_name = self.template_combo.currentText()
+            
+            # 그라데이션 모던 템플릿 처리
+            if template_name == "그라데이션 모던":
+                # 기본 색상 설정
+                colors = {
+                    "outer_box": "#fafafa",
+                    "profile_border": "#e3e3e3",
+                    "gradient_start": "#D9D782",
+                    "gradient_end": "#A9B9D9",
+                    "divider_outer": "#e9e9e9",
+                    "bot_name": "#ededed",
+                    "narration": "#494949",
+                    "tag_bg": "#494949",
+                    "tag_text": "#d5d5d5"
+                }
+                
+                # 봇 이름 섹션 생성
+                bot_name_html = ""
+                if self.show_bot_name.isChecked():
+                    # 사용자가 입력한 봇 이름 사용, 없으면 기본값
+                    bot_name = self.bot_name.text().strip() or "봇이름"
+                    bot_name_html = f'''
+                        <div style="background:linear-gradient(135deg,{colors['gradient_start']},{colors['gradient_end']});
+                                    background-size:110%;
+                                    background-position:center;
+                                    border-radius:20px;
+                                    padding:10px;
+                                    line-height:10px;
+                                    border:solid 10px {colors['divider_outer']};
+                                    text-transform:uppercase;
+                                    letter-spacing:1px;
+                                    box-shadow:inset 0px 40px 0px rgba(30,30,30,.1);
+                                    display:flex;
+                                    width: fit-content;
+                                    max-width: 200px;
+                                    float: left;
+                                    margin-left: 50px;
+                                    margin-top: 5px;">
+                            <span style="text-decoration:none;
+                                    color:{colors['bot_name']};
+                                    font-weight:bold;
+                                    text-shadow:0px 0px 5px rgba(30,30,30,.1)">
+                                {bot_name}
+                            </span>
+                        </div>'''
+
+                # 태그 섹션 생성 - return 전으로 이동
+                tags_html = ""
+                if self.show_tags.isChecked():
+                    tags = []
+                    for i in range(self.tag_layout.count()):
+                        widget = self.tag_layout.itemAt(i).widget()
+                        if hasattr(widget, 'tag_input'):
+                            tag_text = widget.tag_input.text() or f"태그 {i+1}"
+                            tags.append(tag_text)
                     
-                    # 프로필 이미지
-                    if self.show_profile_image.isChecked():
-                        profile_border_color = self.profile_border_color.get_color()
-                        width = self.width_input.value()
-                        height = self.height_input.value()
-                        image_url = self.process_image_url(self.image_url.text())
-                        
-                        # 기본 이미지 스타일 설정
-                        common_style = f'''
-                            max-width:100%;
-                            {f'box-shadow:rgba(0,0,0,0.12) 0px 4px 16px;' if self.show_profile_shadow.isChecked() else ''}
-                            {f'border:3px solid {profile_border_color};' if self.show_profile_border.isChecked() else ''}
-                        '''
-                        
-                        if self.frame_style.currentText() == "배너":
-                            # 배너 스타일
-                            profile_style = f"{common_style} border-radius:12px;"
-                            container_style = "width:100%;"
-                        elif self.frame_style.currentText() == "동그라미":
-                            # 동그라미 스타일
-                            profile_style = f"{common_style} width:{width}px; height:{width}px; border-radius:50%; object-fit:cover;"
-                            container_style = "width:auto;"
-                        else:  # 직사각형
-                            # 직사각형 스타일
-                            profile_style = f"{common_style} width:{width}px; height:{height}px; border-radius:8px; object-fit:cover;"
-                            container_style = "width:auto;"
-                        
-                        profile_html = f'''
-                        <div style="margin-bottom:1rem; text-align:center; {container_style}">
-                            <img style="{profile_style}" 
+                    if tags:
+                        tags_html = f'''
+                            <div style="margin-top: 15px;
+                                        float: right;
+                                        width: fit-content;
+                                        background-color:{colors['tag_bg']};
+                                        border-radius:5px 0px 0px 5px;
+                                        padding:10px;
+                                        line-height:10px;
+                                        letter-spacing:2px;
+                                        text-transform:uppercase;
+                                        color:{colors['tag_text']};
+                                        font-size:10px">
+                                {' | '.join(tags)}
+                            </div>'''
+
+                # 프로필 이미지 섹션 생성
+                profile_image_html = ""
+                if self.show_profile.isChecked() and self.show_profile_image.isChecked():
+                    image_url = self.process_image_url(self.image_url.text())
+                    width = self.width_input.value()
+                    height = self.height_input.value()
+                    frame_style = self.frame_style.currentText()
+                    
+                    # 기본 이미지 스타일 설정
+                    common_style = f"""
+                        max-width: 100%;
+                        display: block;
+                        margin: 0 auto;
+                        box-shadow: 0px 10px 30px rgba(0,0,0,0.1);
+                        border: 3px solid {colors['profile_border']};
+                    """
+                    
+                    # 프레임 스타일별 특수 스타일 적용
+                    if frame_style == "배너":
+                        image_style = f"""
+                            {common_style}
+                            width: 100%;
+                            height: auto;
+                            border-radius: 15px;
+                            object-fit: cover;
+                        """
+                        container_style = "width: 100%; padding: 0 20px;"
+                    elif frame_style == "동그라미":
+                        image_style = f"""
+                            {common_style}
+                            width: {width}px;
+                            height: {width}px;
+                            border-radius: 50%;
+                            object-fit: cover;
+                        """
+                        container_style = "width: auto;"
+                    else:  # 직사각형
+                        image_style = f"""
+                            {common_style}
+                            width: {width}px;
+                            height: {height}px;
+                            border-radius: 10px;
+                            object-fit: cover;
+                        """
+                        container_style = "width: auto;"
+                    
+                    profile_image_html = f'''
+                        <div style="text-align: center; 
+                                    clear: both; 
+                                    {container_style}
+                                    padding-top: 40px;
+                                    padding-bottom: 20px;">
+                            <img style="{image_style}" 
                                 src="{image_url}" 
                                 alt="profile" 
                                 class="fr-fic fr-dii">
                         </div>
-                        '''
-                        profile_parts.append(profile_html)
-                    
-                    # 봇 이름
-                    if self.show_bot_name.isChecked():
-                        bot_name = self.bot_name.text() or "봇 이름"
-                        bot_name_color = self.bot_name_color.get_color()
-                        bot_name_html = f'''
-                            <h3 style="color:{bot_name_color};font-weight:{STYLES['font_weight_bold']};">{bot_name}</h3>
-                        '''
-                        profile_parts.append(bot_name_html)
+                    '''
 
-                    # 태그 부분 (create_template 메서드 내부)
-                    if self.show_tags.isChecked():
-                        try:
+                # 최종 템플릿 반환 (한 번만)
+                return f'''<p><br></p>
+                    <div style="border:solid 2px {colors['profile_border']};
+                                background-color:{colors['outer_box']};
+                                border-radius:20px;
+                                position:relative;
+                                max-width:500px;
+                                margin:0px auto;">
+                        
+                        <div style="height: 85px;margin:-1px -1px 0px -1px">
+                            <div style="background:linear-gradient(-45deg,{colors['gradient_start']},{colors['gradient_end']});
+                                        background-size:200%;
+                                        height:70px;
+                                        border-radius:19px 19px 0px 0px">
+                                <div style="height:70px;width:100%;border-radius:19px 19px 0px 0px">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {bot_name_html}
+                        {profile_image_html}
+                        {tags_html}
+                        
+                        
+                        <div style="padding: 40px 60px 30px 60px;
+                                    line-height:22px;
+                                    letter-spacing:.35px;
+                                    clear: both;">
+                            {content}
+                        </div>
+                    </div>
+                    <p><br></p>'''
+        
+            else:
+                # 박스 색상
+                box_outer_color = self.outer_box_color.get_color()
+                box_inner_color = self.inner_box_color.get_color()
+                shadow_value = self.shadow_intensity.value()
+                
+                # 테두리 설정
+                border_style = ""
+                if self.use_box_border.isChecked():
+                    border_color = self.box_border_color.get_color()
+                    border_thickness = self.box_border_thickness.value()
+                    border_style = f"border: {border_thickness}px solid {border_color};"
+            
+                if self.show_inner_box.isChecked():
+                    # 내부 박스가 있을 때
+                    background_color = box_outer_color
+                    inner_box_style = f"""
+                        font-size:{STYLES['font_size_normal']}px;
+                        background:{box_inner_color};
+                        padding:{STYLES['spacing_large']}px;
+                        border-radius:{STYLES['radius_normal']}px;"""
+                else:
+                    # 내부 박스가 없을 때
+                    background_color = box_inner_color
+                    inner_box_style = f"""
+                        font-size:{STYLES['font_size_normal']}px;
+                        padding:0;"""
+
+                # 프로필 영역 HTML 생성
+                profile_section_html = ''
+                if self.show_profile.isChecked():
+                    try:
+                        profile_parts = []
+                        
+                        # 프로필 이미지
+                        if self.show_profile_image.isChecked():
+                            profile_border_color = self.profile_border_color.get_color()
+                            width = self.width_input.value()
+                            height = self.height_input.value()
+                            image_url = self.process_image_url(self.image_url.text())
+                            
+                            # 기본 이미지 스타일 설정
+                            common_style = f'''
+                                max-width:100%;
+                                {f'box-shadow:rgba(0,0,0,0.12) 0px 4px 16px;' if self.show_profile_shadow.isChecked() else ''}
+                                {f'border:3px solid {profile_border_color};' if self.show_profile_border.isChecked() else ''}
+                            '''
+                            
+                            if self.frame_style.currentText() == "배너":
+                                profile_style = f"{common_style} border-radius:12px;"
+                                container_style = "width:100%;"
+                            elif self.frame_style.currentText() == "동그라미":
+                                profile_style = f"{common_style} width:{width}px; height:{width}px; border-radius:50%; object-fit:cover;"
+                                container_style = "width:auto;"
+                            else:  # 직사각형
+                                profile_style = f"{common_style} width:{width}px; height:{height}px; border-radius:8px; object-fit:cover;"
+                                container_style = "width:auto;"
+                            
+                            profile_html = f'''
+                            <div style="margin-bottom:1rem; text-align:center; {container_style}">
+                                <img style="{profile_style}" 
+                                    src="{image_url}" 
+                                    alt="profile" 
+                                    class="fr-fic fr-dii">
+                            </div>
+                            '''
+                            profile_parts.append(profile_html)
+                        
+                        # 봇 이름
+                        if self.show_bot_name.isChecked():
+                            bot_name = self.bot_name.text() or "봇 이름"
+                            bot_name_color = self.bot_name_color.get_color()
+                            bot_name_html = f'''
+                                <h3 style="color:{bot_name_color};font-weight:{STYLES['font_weight_bold']};">{bot_name}</h3>
+                            '''
+                            profile_parts.append(bot_name_html)
+
+                        # 태그 처리
+                        if self.show_tags.isChecked():
                             tags_html = []
-                            
-                            # 태그 컨테이너의 정렬 스타일 설정
-                            alignment_map = {
-                                "왼쪽": "left",
-                                "가운데": "center",
-                                "오른쪽": "right"
-                            }
-                            tag_alignment = "center"  # 또는 원하는 기본 정렬 값
-                            
                             for i in range(self.tag_layout.count()):
                                 widget = self.tag_layout.itemAt(i).widget()
                                 if isinstance(widget, TagEntry):
                                     style_dict = widget.get_style_dict()
                                     tag_text = style_dict['text'] or f"태그 {i+1}"
-                                    
-                                    # 스타일에 따른 CSS 생성
-                                    css_styles = []
-                                    
-                                    # 기본 스타일
-                                    css_styles.extend([
+                                    css_styles = [
                                         f"display:inline-block",
                                         f"border-radius:{style_dict['border_radius']}px",
                                         f"font-size:{style_dict['font_size']}rem",
                                         f"padding:{style_dict['padding']['top']}rem {style_dict['padding']['right']}rem "
-                                        f"{style_dict['padding']['bottom']}rem {style_dict['padding']['left']}rem"
-                                    ])
+                                        f"{style_dict['padding']['bottom']}rem {style_dict['padding']['left']}rem",
+                                        f"color:{style_dict['text_color']}"
+                                    ]
                                     
-                                    # 스타일 타입별 처리
                                     if style_dict['style'] == "투명 배경":
                                         css_styles.extend([
                                             f"background:transparent",
-                                            f"border:1px solid {style_dict['color']}",
-                                            f"color:{style_dict['color']}"
+                                            f"border:1px solid {style_dict['color']}"
                                         ])
                                     elif style_dict['style'] == "그라데이션":
-                                        # 색상의 밝은/어두운 버전 생성
                                         base_color = QColor(style_dict['color'])
                                         light_color = base_color.lighter(120).name()
                                         dark_color = base_color.darker(120).name()
-                                        
                                         css_styles.extend([
                                             f"background:linear-gradient(135deg, {light_color}, {dark_color})",
-                                            "border:none",
-                                            "color:white",
-                                            "text-shadow:0 1px 2px rgba(0,0,0,0.2)"
+                                            "border:none"
                                         ])
-                                    else:  # 기본 스타일
+                                    else:
                                         css_styles.extend([
                                             f"background:{style_dict['color']}",
-                                            "border:none",
-                                            "color:white"
+                                            "border:none"
                                         ])
-
-                                    # 태그 HTML 생성
+                                    
                                     tag_html = f'''
                                         <span style="{';'.join(css_styles)}">
                                             {tag_text}
@@ -4043,12 +5571,10 @@ class ModernLogGenerator(QMainWindow):
                                     tags_html.append(tag_html)
                             
                             if tags_html:
-                                # 컨테이너 스타일에 애니메이션 효과 추가
                                 container_styles = [
-                                    "text-align:" + tag_alignment,
+                                    "text-align:center",
                                     "margin:0 auto",
-                                    "max-width:fit-content",
-                                    "transition:all 0.3s ease"
+                                    "max-width:fit-content"
                                 ]
                                 
                                 tags_container = f'''
@@ -4057,61 +5583,59 @@ class ModernLogGenerator(QMainWindow):
                                     </div>
                                 '''
                                 profile_parts.append(tags_container)
-                                
-                        except Exception as e:
-                            print(f"Error creating tags: {str(e)}")
-                    
-                    # 구분선
-                    if self.show_divider.isChecked():
-                        thickness = self.divider_thickness.value()  # 굵기 값 가져오기
-                        if self.divider_style.currentText() == "그라데이션":
-                            divider_outer_color = self.divider_outer_color.get_color()
-                            divider_inner_color = self.divider_inner_color.get_color()
-                            divider_style = f"background:linear-gradient(to right,{divider_outer_color} 0%,{divider_inner_color} 50%,{divider_outer_color} 100%);"
-                        else:
-                            solid_color = self.divider_solid_color.get_color()
-                            divider_style = f"background:{solid_color};"
+                        
+                        # 구분선
+                        if self.show_divider.isChecked():
+                            thickness = self.divider_thickness.value()
+                            if self.divider_style.currentText() == "그라데이션":
+                                divider_outer_color = self.divider_outer_color.get_color()
+                                divider_inner_color = self.divider_inner_color.get_color()
+                                divider_style = f"background:linear-gradient(to right,{divider_outer_color} 0%,{divider_inner_color} 50%,{divider_outer_color} 100%);"
+                            else:
+                                solid_color = self.divider_solid_color.get_color()
+                                divider_style = f"background:{solid_color};"
 
-                        divider_html = f'''
-                            <div style="height:{thickness}px;{divider_style}margin:1rem 0;border-radius:{thickness/2}px;">
-                                <br>
-                            </div>
-                        '''
-                        profile_parts.append(divider_html)
+                            divider_html = f'''
+                                <div style="height:{thickness}px;{divider_style}margin:1rem 0;border-radius:{thickness/2}px;">
+                                    <br>
+                                </div>
+                            '''
+                            profile_parts.append(divider_html)
+                        
+                        # 전체 프로필 섹션 조합
+                        if profile_parts:
+                            profile_section_html = f'''
+                                <div style="display:flex;flex-direction:column;text-align:center;margin-bottom:1.25rem;">
+                                    {''.join(profile_parts)}
+                                </div>
+                            '''
                     
-                    # 전체 프로필 섹션 조합
-                    if profile_parts:
-                        profile_section_html = f'''
-                            <div style="display:flex;flex-direction:column;text-align:center;margin-bottom:1.25rem;">
-                                {''.join(profile_parts)}
+                    except Exception as e:
+                        print(f"Error in profile creation: {str(e)}")
+                
+                # 기존 템플릿 반환
+                return f'''<p><br></p>
+                    <p><br></p>
+                    <div style="font-family:{STYLES['font_family']};
+                                color:{STYLES['text']};
+                                line-height:1.8;
+                                width:100%;
+                                max-width:600px;
+                                margin:1rem auto;
+                                background:{background_color};
+                                border-radius:{STYLES['radius_large']}px;
+                                box-shadow:0px {shadow_value}px {shadow_value * 2}px rgba(0,0,0,0.2);
+                                {border_style}">
+                        <div style="padding:{STYLES['spacing_large']}px;">
+                            <div style="{inner_box_style}">
+                                {profile_section_html}
+                                {content}
                             </div>
-                        '''
-                    
-                except Exception as e:
-                    print(f"Error in template creation: {str(e)}")
-                    return f"<div>{content}</div>"
-            
-            template = f'''<p><br></p>
-    <p><br></p>
-    <div style="font-family:{STYLES['font_family']};
-                            color:{STYLES['text']};
-                            line-height:1.8;
-                            width:100%;
-                            max-width:600px;
-                            margin:1rem auto;
-                            background:{background_color};
-                            border-radius:{STYLES['radius_large']}px;
-                            box-shadow:0px {shadow_value}px {shadow_value * 2}px rgba(0,0,0,0.2);">
-                    <div style="padding:{STYLES['spacing_large']}px;">
-                        <div style="{inner_box_style}">
-                            {profile_section_html}
-                            {content}
                         </div>
                     </div>
-                </div>
-    <p><br></p>
-    <p><br></p>'''
-            return template
+                    <p><br></p>
+                    <p><br></p>'''
+                    
         except Exception as e:
             print(f"Error in template creation: {str(e)}")
             return f"<div>{content}</div>"
@@ -4156,8 +5680,11 @@ class ModernLogGenerator(QMainWindow):
             self.output_text.setPlainText(template)
             
         except Exception as e:
-            self.handle_error(f"변환 중 오류가 발생했습니다: {str(e)}")
-            print(f"Error details: {e}")
+            self.handle_error(
+                "데이터 처리 중 오류가 발생했습니다.",
+                ErrorSeverity.MEDIUM,
+                e
+            )
 
     def copy_to_clipboard(self):
         """HTML 복사"""
@@ -4210,10 +5737,24 @@ class ModernLogGenerator(QMainWindow):
         ok_button = ModernButton("매핑 생성", primary=True)
         ok_button.clicked.connect(lambda: self.process_bulk_mapping_and_close(
             url_input.toPlainText(),
-            sorted(list(self.card_handler.image_uri_map.keys()), key=str.lower),  # 대소문자 구분 없이 정렬
+            sorted(list(self.card_handler.image_uri_map.keys()), key=str.lower),
             dialog
         ))
         button_layout.addWidget(ok_button)
+        
+        # 가로 세로 0 버튼 추가
+        def apply_zero_size():
+            current_text = url_input.toPlainText()
+            modified_text = re.sub(
+                r'(<img[^>]*?)(?:\s+style="[^"]*")?([^>]*?>)',
+                r'\1 style="width: 0px; height: 0px;"\2',
+                current_text
+            )
+            url_input.setPlainText(modified_text)
+        
+        zero_size_button = ModernButton("가로 세로 0")
+        zero_size_button.clicked.connect(apply_zero_size)
+        button_layout.addWidget(zero_size_button)
         
         # 취소 버튼
         cancel_button = ModernButton("취소")
@@ -4417,68 +5958,139 @@ class ModernLogGenerator(QMainWindow):
         self.profile_border_color.setEnabled(is_border_enabled)
 
 
-    def closeEvent(self, event):
-        """프로그램 종료 시 리소스 정리"""
+
+    def cleanup_large_objects(self):
+        """대용량 객체 정리"""
         try:
-            # [새로운 부분] 타이머 정리
-            if self.preview_timer is not None:
-                self.preview_timer.stop()
-                self.preview_timer.deleteLater()
-
-            # [기존 기능] 프리셋 저장
-            self.preset_manager.save_presets()
-
-            # [새로운 부분] 모든 위젯 정리
-            for widget in self.findChildren(QWidget):
-                widget.deleteLater()
-
-            # 임시 파일 정리 추가
+            # 1. 텍스트 에디터 버퍼 정리
+            if hasattr(self, 'input_text'):
+                if len(self.input_text.toPlainText()) > 1000000:  # 1MB 이상
+                    self.input_text.clear()
+                    
+            if hasattr(self, 'output_text'):
+                if len(self.output_text.toPlainText()) > 1000000:
+                    self.output_text.clear()
+            
+            # 2. 이미지 캐시 정리
+            if hasattr(self, 'image_cache_manager'):
+                stats = self.image_cache_manager.get_stats()
+                if stats['total_size_mb'] > 100:  # 100MB 초과
+                    self.image_cache_manager.clear()
+            
+            # 3. 임시 파일 정리
             if hasattr(self, 'card_handler'):
                 self.card_handler.cleanup()
-            
+                
+        except Exception as e:
+            self.error_handler.handle_error(
+                "대용량 객체 정리 중 오류가 발생했습니다.",
+                ErrorSeverity.LOW,
+                e
+            )
+
+
+    def closeEvent(self, event):
+        """프로그램 종료 시 처리"""
+        try:
+            # 1단계: 기본 설정 저장
+            cleanup_success = self._save_all_settings()
+            if not cleanup_success:
+                self._show_cleanup_warning(event)
+                return
+
+            # 2단계: 리소스 정리
+            if not self._cleanup_resources():
+                self._show_cleanup_warning(event)
+                return
+
+            # 3단계: 임시 파일 정리
+            if not self._cleanup_temp_files():
+                self._show_cleanup_warning(event)
+                return
+
             event.accept()
         except Exception as e:
-            self.handle_error(f"프로그램 종료 중 오류가 발생했습니다: {str(e)}")
+            self.error_handler.handle_error(
+                f"프로그램 종료 중 오류가 발생했습니다: {str(e)}",
+                ErrorSeverity.HIGH
+            )
             event.accept()
 
-    def update_preview(self):
-        """개선된 미리보기 업데이트"""
+    def _save_all_settings(self):
+        """모든 설정 저장"""
         try:
-            # 이전 타이머 중지
+            # 창 위치와 크기 저장
+            self.settings.setValue('window_geometry', self.saveGeometry())
+            
+            # Splitter 상태 저장
+            if self.splitter:
+                self.settings.setValue('splitter_state', self.splitter.saveState())
+            
+            # 텍스트 설정 저장
+            if hasattr(self, 'text_settings_manager'):
+                self.text_settings_manager.save_settings()
+            
+            # 프리셋과 태그 설정 저장
+            self.preset_manager.save_presets()
+            self.save_tag_presets_to_file()
+            
+            return True
+        except Exception as e:
+            print(f"설정 저장 중 오류: {str(e)}")
+            return False
+
+    def _cleanup_resources(self):
+        """리소스 정리"""
+        try:
+            # 타이머 정리
             if hasattr(self, 'preview_timer') and self.preview_timer:
                 self.preview_timer.stop()
+                self.preview_timer.deleteLater()
             
-            # 새 타이머 생성
-            self.preview_timer = QTimer()
-            self.preview_timer.setSingleShot(True)
+            # 메모리 모니터링 타이머 정리
+            if hasattr(self, 'memory_monitor_timer') and self.memory_monitor_timer:
+                self.memory_monitor_timer.stop()
+                self.memory_monitor_timer.deleteLater()
             
-            # 미리보기 업데이트 함수
-            def do_update():
-                if hasattr(self, 'input_text') and hasattr(self, 'output_text'):
-                    try:
-                        self.convert_text()
-                        
-                        # 태그 컨테이너 업데이트 효과
-                        tag_containers = self.findChildren(QWidget, "tag_container")
-                        for container in tag_containers:
-                            # 페이드 효과
-                            opacity_effect = QGraphicsOpacityEffect(container)
-                            container.setGraphicsEffect(opacity_effect)
-                            
-                            animation = QPropertyAnimation(opacity_effect, b"opacity")
-                            animation.setDuration(200)
-                            animation.setStartValue(0.5)
-                            animation.setEndValue(1.0)
-                            animation.start()
-                            
-                    except Exception as e:
-                        print(f"Preview update error: {str(e)}")
+            # resource manager를 통한 정리
+            if hasattr(self, 'resource_manager'):
+                cleanup_success = self.resource_manager.cleanup()
+                if not cleanup_success:
+                    return False
             
-            self.preview_timer.timeout.connect(do_update)
-            self.preview_timer.start(300)  # 300ms 디바운싱
-            
+            # 위젯 정리
+            for widget in self.findChildren(QWidget):
+                widget.deleteLater()
+                
+            return True
         except Exception as e:
-            print(f"Preview timer setup error: {str(e)}")
+            print(f"리소스 정리 중 오류: {str(e)}")
+            return False
+
+    def _cleanup_temp_files(self):
+        """임시 파일 정리"""
+        try:
+            if hasattr(self, 'card_handler'):
+                self.card_handler.cleanup()
+            return True
+        except Exception as e:
+            print(f"임시 파일 정리 중 오류: {str(e)}")
+            return False
+
+    def _show_cleanup_warning(self, event):
+        """정리 실패 시 경고 표시"""
+        reply = QMessageBox.question(
+            self,
+            '경고',
+            '일부 리소스 정리 중 문제가 발생했습니다. 프로그램을 종료하시겠습니까?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            event.accept()
+        else:
+            event.ignore()
 
     def export_presets_dialog(self):
         """프리셋 내보내기 다이얼로그"""
@@ -4500,32 +6112,14 @@ class ModernLogGenerator(QMainWindow):
         if filepath:
             self.preset_manager.import_presets(filepath)
 
-    def handle_error(self, error_msg):
-        """향상된 에러 처리 및 통합 메서드"""
-        # 에러 메시지를 사용자에게 보여주기
-        QMessageBox.warning(self, '오류', error_msg)
-        # 콘솔에도 출력
-        print(f"Error: {error_msg}")
-
-        # 심각한 오류인 경우 로그 파일에 기록
-        if "심각" in error_msg:
-            self.log_error(error_msg)
-
+    def handle_error(self, error_msg, severity=ErrorSeverity.MEDIUM, exception=None):
+        """에러 처리를 ErrorHandler로 위임"""
+        self.error_handler.handle_error(error_msg, severity, exception)
 
     def log_error(self, error_msg):
-        """에러 로깅"""
-        try:
-            # 로그 파일 경로 설정
-            log_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
-            os.makedirs(log_dir, exist_ok=True)
-            log_file = os.path.join(log_dir, 'error.log')
-            
-            # 로그 파일에 에러 기록
-            with open(log_file, 'a', encoding='utf-8') as f:
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"[{timestamp}] {error_msg}\n")
-        except Exception as e:
-            print(f"로그 기록 중 오류 발생: {str(e)}")
+        """이전 버전과의 호환성을 위한 메서드"""
+        severity = ErrorSeverity.HIGH if "심각" in error_msg else ErrorSeverity.MEDIUM
+        self.error_handler.handle_error(error_msg, severity)
 
 
 def main():
