@@ -864,7 +864,8 @@ class TextSettingsManager:
         if ok and name:
             if name in self.settings:
                 reply = QMessageBox.question(
-                    self.main_window, '설정 덮어쓰기',
+                    self.main_window,
+                    '설정 덮어쓰기',
                     f'"{name}" 설정이 이미 존재합니다. 덮어쓰시겠습니까?',
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
@@ -876,10 +877,10 @@ class TextSettingsManager:
                     'text_indent': self.main_window.text_indent.value(),
                     'dialog_color': self.main_window.dialog_color.get_color(),
                     'narration_color': self.main_window.narration_color.get_color(),
-                    'inner_thoughts_color': self.main_window.inner_thoughts_color.get_color(),  # 추가
+                    'inner_thoughts_color': self.main_window.inner_thoughts_color.get_color(),
                     'dialog_bold': self.main_window.dialog_bold.isChecked(),
-                    'inner_thoughts_bold': self.main_window.inner_thoughts_bold.isChecked(),  # 추가
-                    'dialog_newline': self.main_window.dialog_newline.isChecked(),
+                    'dialog_newline': self.main_window.dialog_newline.isChecked(),  # 대화문 줄바꿈 설정 추가
+                    'inner_thoughts_bold': self.main_window.inner_thoughts_bold.isChecked(),
                     'remove_asterisk': self.main_window.remove_asterisk.isChecked(),
                     'convert_ellipsis': self.main_window.convert_ellipsis.isChecked(),
                     'use_text_size': self.main_window.use_text_size.isChecked(),
@@ -889,12 +890,14 @@ class TextSettingsManager:
                 self.settings[name] = current_settings
                 self.save_settings()
                 QMessageBox.information(
-                    self.main_window, '저장 완료',
+                    self.main_window,
+                    '저장 완료',
                     f'텍스트 설정 "{name}"이(가) 저장되었습니다.'
                 )
             except Exception as e:
                 QMessageBox.warning(
-                    self.main_window, '오류',
+                    self.main_window,
+                    '오류',
                     f'설정 저장 중 오류가 발생했습니다: {str(e)}'
                 )
 
@@ -903,7 +906,8 @@ class TextSettingsManager:
         try:
             if name not in self.settings:
                 QMessageBox.warning(
-                    self.main_window, '오류',
+                    self.main_window,
+                    '오류',
                     f'설정 "{name}"을(를) 찾을 수 없습니다.'
                 )
                 return False
@@ -914,30 +918,32 @@ class TextSettingsManager:
             self.main_window.text_indent.setValue(settings['text_indent'])
             self.main_window.dialog_color.setColor(settings['dialog_color'])
             self.main_window.narration_color.setColor(settings['narration_color'])
-            self.main_window.inner_thoughts_color.setColor(settings.get('inner_thoughts_color', '#718096'))  # 기본값 추가
+            self.main_window.inner_thoughts_color.setColor(settings.get('inner_thoughts_color', '#718096'))
             self.main_window.dialog_bold.setChecked(settings['dialog_bold'])
-            self.main_window.inner_thoughts_bold.setChecked(settings.get('inner_thoughts_bold', False))  # 기본값 추가
+            self.main_window.dialog_newline.setChecked(settings.get('dialog_newline', True))  # 대화문 줄바꿈 설정 로드
+            self.main_window.inner_thoughts_bold.setChecked(settings.get('inner_thoughts_bold', False))
             self.main_window.remove_asterisk.setChecked(settings['remove_asterisk'])
             self.main_window.convert_ellipsis.setChecked(settings['convert_ellipsis'])
             self.main_window.use_text_size.setChecked(settings['use_text_size'])
             self.main_window.text_size.setValue(settings['text_size'])
             self.main_window.use_text_indent.setChecked(settings['use_text_indent'])
-            self.main_window.dialog_newline.setChecked(settings.get('dialog_newline', True))
-            
+
             # UI 상태 업데이트
             self.main_window.update_text_size_state()
             self.main_window.update_indent_state()
             self.main_window.update_preview()
 
             QMessageBox.information(
-                self.main_window, '불러오기 완료',
+                self.main_window,
+                '불러오기 완료',
                 f'텍스트 설정 "{name}"이(가) 적용되었습니다.'
             )
             return True
 
         except Exception as e:
             QMessageBox.warning(
-                self.main_window, '오류',
+                self.main_window,
+                '오류',
                 f'설정을 불러오는 중 오류가 발생했습니다: {str(e)}'
             )
             return False
@@ -1654,7 +1660,6 @@ class CharacterCardHandler:
         except Exception as e:
             print(f"Error processing CCv2 assets: {e}")
 
-    # CharacterCardHandler 클래스의 _process_ccv3_assets 메서드를 수정합니다
     def _process_ccv3_assets(self):
         """CCv3 에셋 처리"""
         try:
@@ -1664,35 +1669,55 @@ class CharacterCardHandler:
             
             # .charx 파일에서 로드된 경우 이미 매핑이 되어 있으므로 건너뜀
             if not self.image_uri_map:
-                for i, asset in enumerate(assets):
-                    try:
-                        asset_name = asset.get("name", "").strip()
-                        if not asset_name:  # 이름이 없는 경우 번호 사용
-                            asset_name = f"asset_{i}"
-                        
-                        # 여기가 핵심 수정 부분: 이미지 데이터의 키를 인덱스로 찾음
-                        image_key = f"chara-ext-asset_:{i}"
-                        
-                        if image_key in self.image_data:
-                            # asset_name(원본 태그명)을 키로 사용하여 매핑
-                            self.image_uri_map[asset_name] = image_key
-                            print(f"Successfully mapped: {asset_name} -> {image_key}")
-                        else:
-                            print(f"Warning: No image data found for {image_key}")
-                            
-                    except Exception as e:
-                        print(f"Error processing individual asset {i}: {e}")
-                        continue
+                # 실제 이미지 데이터의 키 패턴 변경
+                for key in self.image_data.keys():
+                    if 'chara-ext-asset_' in key:
+                        # 숫자 추출
+                        num = key.split('_')[-1]
+                        if num.isdigit():
+                            idx = int(num) - 1  # 1-based to 0-based
+                            if idx < len(assets):
+                                asset = assets[idx]
+                                asset_name = asset.get("name", "").strip()
+                                if not asset_name:
+                                    asset_name = f"asset_{idx}"
+                                
+                                # 이미지 키를 원본 에셋 이름으로 매핑
+                                self.image_uri_map[asset_name] = key
+                                print(f"Successfully mapped: {asset_name} -> {key}")
                 
                 print(f"\nProcessing completed:")
                 print(f"Total assets found: {len(assets)}")
                 print(f"Successfully mapped: {len(self.image_uri_map)} assets")
-                
+            
             # 디버그 정보 출력
             self.debug_print_asset_info()
+            return True
             
         except Exception as e:
             print(f"Error in _process_ccv3_assets: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def debug_print_asset_info(self):
+        """에셋 정보 출력 (디버깅용)"""
+        print("\n=== Asset Debug Information ===")
+        print(f"Total image data entries: {len(self.image_data)}")
+        
+        print("\nImage data keys:")
+        for key in sorted(self.image_data.keys()):
+            print(f"- {key}")
+        
+        print("\nImage URI mappings:")
+        for name, uri in sorted(self.image_uri_map.items()):
+            print(f"- {name} -> {uri}")
+            
+        print("\nCharacter data assets:")
+        assets = self.character_data.get("data", {}).get("assets", [])
+        for i, asset in enumerate(assets):
+            print(f"- Name: {asset.get('name')}, URI: {asset.get('uri', f'__asset:{i+1}')}")
+        print("============================\n")
 
     def save_assets(self):
         """에셋을 임시 폴더에 저장"""
@@ -5102,9 +5127,9 @@ class ModernLogGenerator(QMainWindow):
             r'\{\{(img|image)::[\'""″""]*[^}]+[\'""″""]*\}\}',
             r'\{\{(img|image)=[\'""″""]*[^}]+[\'""″""]*\}\}',
             r'<(img|image)\s+src=[\'""″""]*[^\'""″""]+[\'""″""]*>',
-            r'<(img|image)=[\'""″""]*[^>]+[\'""″""]*>'
+            r'<(img|image)=[\'""″""]*[^>]+[\'""″""]*>',
+            r'<img=[\'""″""]*[^>]+[\'""″""]*>',  # 새로운 패턴 추가
         ]
-
     def _extract_tag_identifier(self, tag):
         """이미지 태그에서 식별자만 추출"""
         # img 태그에서 식별자 추출
@@ -5231,7 +5256,7 @@ class ModernLogGenerator(QMainWindow):
         return mappings
 
     def format_conversation(self, text):
-        """대화문 포맷팅 - 대화문에만 선택적 줄바꿈 적용"""
+        """대화문 포맷팅 - 대화문에만 선택적 줄바꿈 적용, 공백 보존, 따옴표 스타일링"""
         indent = self.text_indent.value() if self.use_text_indent.isChecked() else 0
         dialog_color = self.dialog_color.get_color()
         inner_thoughts_color = self.inner_thoughts_color.get_color()
@@ -5244,9 +5269,13 @@ class ModernLogGenerator(QMainWindow):
         if self.convert_ellipsis.isChecked():
             text = text.replace('...', '…')
         
-        # 따옴표 패턴 - 정규화하지 않고 원본 유지
-        dialog_pattern = r'([""″""].*?[""″""])'  # 모든 종류의 큰따옴표
-        inner_thoughts_pattern = r'([\'''].*?[\'''])'  # 모든 종류의 작은따옴표
+        # 공백을 보존하면서 따옴표를 포함하는 패턴
+        # 모든 종류의 따옴표를 한꺼번에 매칭하도록 수정
+        # 모든 종류의 따옴표 및 볼드 패턴 매칭
+        dialog_pattern = r'(\*\*".*?"\*\*|["""″“""]\s*.+?\s*["""″”""]|".*?")'
+
+        # 속마음 패턴은 그대로 유지
+        inner_thoughts_pattern = r'([\'\'\']\s*.+?\s*[\'\'\'])'
         
         lines = text.split('\n')
         formatted_lines = []
@@ -5259,34 +5288,52 @@ class ModernLogGenerator(QMainWindow):
             if line.strip().startswith('<') and line.strip().endswith('>'):
                 continue
             
-            # 텍스트 처리를 위한 부분들을 저장할 리스트
             parts_to_process = []
             
-            # 대화문 처리
-            parts = re.split(dialog_pattern, line)
-            for i, part in enumerate(parts):
-                if re.match(dialog_pattern, part):
-                    # 대화문일 경우
-                    style = f"color:{dialog_color}; {dialog_bold} {text_size}"
-                    
-                    # 대화문 줄바꿈 설정이 활성화된 경우에만 줄바꿈 추가
-                    if self.dialog_newline.isChecked():
-                        content = f'<span style="{style}">{part}</span>'
-                        # 줄바꿈을 div로 감싸서 처리
-                        parts_to_process.append(f'<div style="margin-top:1em; margin-bottom:1em;">{content}</div>')
-                    else:
-                        parts_to_process.append(f'<span style="{style}">{part}</span>')
-                else:
-                    # 나레이션과 속마음 처리
-                    inner_parts = re.split(inner_thoughts_pattern, part)
-                    for inner_part in inner_parts:
-                        if re.match(inner_thoughts_pattern, inner_part):
-                            # 속마음은 줄바꿈 없이 처리
+            # 대화문 처리: re.split 대신 re.finditer 사용
+            last_end = 0
+            for match in re.finditer(dialog_pattern, line):
+                # 대화문 이전의 나레이션 처리
+                if match.start() > last_end:
+                    narration = line[last_end:match.start()]
+                    if narration.strip():
+                        # 나레이션 내의 속마음 처리
+                        for inner_match in re.finditer(inner_thoughts_pattern, narration):
+                            # 속마음 이전 텍스트
+                            prev_text = narration[0:inner_match.start()]
+                            if prev_text.strip():
+                                style = f"color:{narration_color}; {text_size}"
+                                parts_to_process.append(f'<span style="{style}">{prev_text}</span>')
+                            
+                            # 속마음 텍스트
+                            inner_thought = inner_match.group()
                             style = f"color:{inner_thoughts_color}; {inner_thoughts_bold} {text_size}"
-                            parts_to_process.append(f'<span style="{style}">{inner_part}</span>')
-                        elif inner_part.strip():
+                            parts_to_process.append(f'<span style="{style}">{inner_thought}</span>')
+                            
+                            narration = narration[inner_match.end():]
+                        
+                        # 남은 나레이션 처리
+                        if narration.strip():
                             style = f"color:{narration_color}; {text_size}"
-                            parts_to_process.append(f'<span style="{style}">{inner_part.strip()}</span>')
+                            parts_to_process.append(f'<span style="{style}">{narration}</span>')
+                
+                # 대화문 처리
+                dialog = match.group()
+                style = f"color:{dialog_color}; {dialog_bold} {text_size}"
+                if self.dialog_newline.isChecked():
+                    content = f'<span style="{style}">{dialog}</span>'
+                    parts_to_process.append(f'<div style="margin-top:1em; margin-bottom:1em;">{content}</div>')
+                else:
+                    parts_to_process.append(f'<span style="{style}">{dialog}</span>')
+                    
+                last_end = match.end()
+            
+            # 마지막 대화문 이후의 나레이션 처리
+            if last_end < len(line):
+                remaining = line[last_end:]
+                if remaining.strip():
+                    style = f"color:{narration_color}; {text_size}"
+                    parts_to_process.append(f'<span style="{style}">{remaining}</span>')
             
             # 들여쓰기 처리
             if self.use_text_indent.isChecked():
@@ -5553,13 +5600,17 @@ class ModernLogGenerator(QMainWindow):
                                 if isinstance(widget, TagEntry):
                                     style_dict = widget.get_style_dict()
                                     tag_text = style_dict['text'] or f"태그 {i+1}"
+                                    
+                                    # 기본 CSS 스타일에 여백 추가
                                     css_styles = [
-                                        f"display:inline-block",
+                                        "display:inline-block",
                                         f"border-radius:{style_dict['border_radius']}px",
                                         f"font-size:{style_dict['font_size']}rem",
                                         f"padding:{style_dict['padding']['top']}rem {style_dict['padding']['right']}rem "
                                         f"{style_dict['padding']['bottom']}rem {style_dict['padding']['left']}rem",
-                                        f"color:{style_dict['text_color']}"
+                                        f"color:{style_dict['text_color']}",
+                                        "margin:0.15rem 0.2rem",  # 상하 0.25rem, 좌우 0.5rem 여백 추가
+                                        "white-space:nowrap"      # 태그 텍스트 줄바꿈 방지
                                     ]
                                     
                                     if style_dict['style'] == "투명 배경":
@@ -5582,17 +5633,21 @@ class ModernLogGenerator(QMainWindow):
                                         ])
                                     
                                     tag_html = f'''
-                                        <span style="{';'.join(css_styles)}">
-                                            {tag_text}
-                                        </span>
+                                        <span style="{';'.join(css_styles)}">{tag_text}</span>
                                     '''
                                     tags_html.append(tag_html)
                             
                             if tags_html:
+                                # 태그 컨테이너 스타일 개선
                                 container_styles = [
                                     "text-align:center",
-                                    "margin:0 auto",
-                                    "max-width:fit-content"
+                                    "margin:0.2rem auto",    # 상하 여백 추가
+                                    "width:100%",            # 전체 너비 사용
+                                    "display:flex",          # Flexbox 사용
+                                    "flex-wrap:wrap",        # 태그 자동 줄바꿈
+                                    "justify-content:center", # 가운데 정렬
+                                    "align-items:center",    # 세로 가운데 정렬
+                                    "gap:0.5rem"            # 태그 사이 간격
                                 ]
                                 
                                 tags_container = f'''
@@ -5600,6 +5655,8 @@ class ModernLogGenerator(QMainWindow):
                                         {''.join(tags_html)}
                                     </div>
                                 '''
+                                
+                                # 프로필 섹션에 태그 컨테이너 추가
                                 profile_parts.append(tags_container)
                         
                         # 구분선
