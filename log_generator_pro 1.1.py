@@ -15,6 +15,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+
 import base64
 import contextlib
 import glob
@@ -486,8 +487,8 @@ class TemplateManager:
                    ]
                }
            },
-           "모던 블루": {
-               "name": "모던 블루",
+           "다크 모드 블루": {
+               "name": "다크 모드 블루",
                "theme": {
                    "colors": {
                        "outer_box": "#1a202c",
@@ -512,8 +513,8 @@ class TemplateManager:
                    ]
                }
            },
-           "다크 모드": {
-               "name": "다크 모드",
+           "다크 모드 베이직": {
+               "name": "다크 모드 베이직",
                "theme": {
                    "colors": {
                        "outer_box": "#000000",
@@ -694,8 +695,8 @@ class TemplateManager:
                    ]
                }
            },
-           "스페이스 그레이": {
-               "name": "스페이스 그레이",
+           "다크 모드 그레이": {
+               "name": "다크 모드 그레이",
                "theme": {
                    "colors": {
                        "outer_box": "#1a1a1a",
@@ -720,34 +721,138 @@ class TemplateManager:
                    ]
                }
            },
-           "그라데이션 모던": {
-               "name": "그라데이션 모던",
-               "theme": {
-                   "colors": {
-                       "outer_box": "#fafafa",
-                       "inner_box": "#fafafa",
-                       "background": "#fafafa",
-                       "bot_name": "#494949",
-                       "dialog": "#494949",
-                       "narration": "#666666",
-                       "inner_thoughts": "#808080",
-                       "profile_border": "#e3e3e3",
-                       "box_border": "#e9e9e9",
-                       "image_border": "#e3e3e3",
-                       "divider_outer": "#e9e9e9",
-                       "divider_inner": "#e9e9e9",
-                       "gradient_start": "#D9D782",
-                       "gradient_end": "#A9B9D9",
-                       "tag_bg": "#494949",
-                       "tag_text": "#d5d5d5"
-                   },
-                   "tags": [
-                       {"color": "#494949", "text_color": "#d5d5d5", "border_color": "#5a5a5a"},
-                       {"color": "#494949", "text_color": "#d5d5d5", "border_color": "#5a5a5a"},
-                       {"color": "#494949", "text_color": "#d5d5d5", "border_color": "#5a5a5a"}
-                   ]
-               }
-           }
+            "다크 모드 민트": {
+                "name": "다크 모드 민트",
+                "theme": {
+                    "colors": {
+                        "outer_box": "#1a2420",
+                        "inner_box": "#243330",
+                        "background": "#243330",
+                        "bot_name": "#4fd1c5",
+                        "dialog": "#e2e8f0",
+                        "narration": "#cbd5e0",
+                        "inner_thoughts": "#718096",
+                        "profile_border": "#2d4a44",
+                        "box_border": "#2d4a44",
+                        "image_border": "#2d4a44",
+                        "divider_outer": "#2d4a44",
+                        "divider_inner": "#1a2420",
+                        "gradient_start": "#1a2420",
+                        "gradient_end": "#2d4a44"
+                    },
+                    "tags": [
+                        {"color": "#234e46", "text_color": "#4fd1c5", "border_color": "#2d4a44"},
+                        {"color": "#2d4a44", "text_color": "#4fd1c5", "border_color": "#366d63"},
+                        {"color": "#366d63", "text_color": "#e2e8f0", "border_color": "#3d7a6f"}
+                    ]
+                }
+            },
+            "다크 모드 로즈": {
+                "name": "다크 모드 로즈",
+                "theme": {
+                    "colors": {
+                        "outer_box": "#201a1a",
+                        "inner_box": "#332424",
+                        "background": "#332424",
+                        "bot_name": "#f687b3",
+                        "dialog": "#e2e8f0",
+                        "narration": "#cbd5e0",
+                        "inner_thoughts": "#718096",
+                        "profile_border": "#4a2d2d",
+                        "box_border": "#4a2d2d",
+                        "image_border": "#4a2d2d",
+                        "divider_outer": "#4a2d2d",
+                        "divider_inner": "#201a1a",
+                        "gradient_start": "#201a1a",
+                        "gradient_end": "#4a2d2d"
+                    },
+                    "tags": [
+                        {"color": "#4e2323", "text_color": "#f687b3", "border_color": "#4a2d2d"},
+                        {"color": "#4a2d2d", "text_color": "#f687b3", "border_color": "#663636"},
+                        {"color": "#663636", "text_color": "#e2e8f0", "border_color": "#804040"}
+                    ]
+                }
+            },
+            "다크 모드 퍼플": {
+                "name": "다크 모드 퍼플",
+                "theme": {
+                    "colors": {
+                        "outer_box": "#1a1a2c",
+                        "inner_box": "#2d2d48",
+                        "background": "#2d2d48",
+                        "bot_name": "#b794f4",
+                        "dialog": "#e2e8f0",
+                        "narration": "#cbd5e0",
+                        "inner_thoughts": "#718096",
+                        "profile_border": "#4a4a68",
+                        "box_border": "#4a4a68",
+                        "image_border": "#4a4a68",
+                        "divider_outer": "#4a4a68",
+                        "divider_inner": "#1a1a2c",
+                        "gradient_start": "#1a1a2c",
+                        "gradient_end": "#2d2d48"
+                    },
+                    "tags": [
+                        {"color": "#4a4a68", "text_color": "#b794f4", "border_color": "#6b46c1"},
+                        {"color": "#6b46c1", "text_color": "#e2e8f0", "border_color": "#805ad5"},
+                        {"color": "#805ad5", "text_color": "#ffffff", "border_color": "#9f7aea"}
+                    ]
+                }
+            },
+
+            "다크 모드 브라운": {
+                "name": "다크 모드 브라운",
+                "theme": {
+                    "colors": {
+                        "outer_box": "#1a1814",
+                        "inner_box": "#2d2420",
+                        "background": "#2d2420",
+                        "bot_name": "#ed8936",
+                        "dialog": "#e2e8f0",
+                        "narration": "#cbd5e0",
+                        "inner_thoughts": "#718096",
+                        "profile_border": "#4a3f2c",
+                        "box_border": "#4a3f2c",
+                        "image_border": "#4a3f2c",
+                        "divider_outer": "#4a3f2c",
+                        "divider_inner": "#1a1814",
+                        "gradient_start": "#1a1814",
+                        "gradient_end": "#2d2420"
+                    },
+                    "tags": [
+                        {"color": "#4a3f2c", "text_color": "#ed8936", "border_color": "#7b5e3d"},
+                        {"color": "#7b5e3d", "text_color": "#ed8936", "border_color": "#966251"},
+                        {"color": "#966251", "text_color": "#ffffff", "border_color": "#b08b6e"}
+                    ]
+                }
+            },
+
+            "다크 모드 오렌지": {
+                "name": "다크 모드 오렌지",
+                "theme": {
+                    "colors": {
+                        "outer_box": "#1a1410",
+                        "inner_box": "#2d2016",
+                        "background": "#2d2016",
+                        "bot_name": "#fd7e14",
+                        "dialog": "#e2e8f0",
+                        "narration": "#cbd5e0",
+                        "inner_thoughts": "#718096",
+                        "profile_border": "#4a3828",
+                        "box_border": "#4a3828",
+                        "image_border": "#4a3828",
+                        "divider_outer": "#4a3828",
+                        "divider_inner": "#1a1410",
+                        "gradient_start": "#1a1410",
+                        "gradient_end": "#2d2016"
+                    },
+                    "tags": [
+                        {"color": "#4a3828", "text_color": "#fd7e14", "border_color": "#7b5e3d"},
+                        {"color": "#7b5e3d", "text_color": "#fd7e14", "border_color": "#c05621"},
+                        {"color": "#c05621", "text_color": "#ffffff", "border_color": "#dd6b20"}
+                    ]
+                }
+            }
        }
 
 
@@ -774,7 +879,7 @@ class TemplateManager:
 
             template = self.templates[template_name]["theme"]["colors"]
             
-            # 색상 설정 적용
+            # 기존 색상 설정 적용
             self.main_window.outer_box_color.setColor(template["outer_box"])
             self.main_window.inner_box_color.setColor(template["inner_box"])
             self.main_window.bot_name_color.setColor(template["bot_name"])
@@ -794,18 +899,27 @@ class TemplateManager:
 
             # 태그 색상 및 스타일 적용
             tags = self.templates[template_name]["theme"]["tags"]
-            for i, tag_data in enumerate(tags):
-                if i < len(self.main_window.tag_colors):
-                    self.main_window.tag_colors[i].setColor(tag_data["color"])
-
-                    # 태그 입력 위젯이 있는 경우 추가 스타일 적용
-                    tag_entries = self.main_window.findChildren(TagEntry)
-                    if i < len(tag_entries):
-                        tag_entries[i].text_color_btn.setColor(tag_data["text_color"])
-                        if "border_color" in tag_data:
-                            tag_entries[i].border_color = tag_data["border_color"]
-                        if "hover_color" in tag_data:
-                            tag_entries[i].hover_color = tag_data["hover_color"]
+            
+            # 태그 영역의 모든 TagEntry 위젯 찾기
+            tag_entries = self.main_window.findChildren(TagEntry)
+            
+            # 각 태그 엔트리에 템플릿 스타일 적용
+            for i, tag_entry in enumerate(tag_entries):
+                if i < len(tags):
+                    tag_data = tags[i]
+                    # 배경색 설정
+                    tag_entry.color_btn.setColor(tag_data["color"])
+                    # 텍스트 색상 설정
+                    tag_entry.text_color_btn.setColor(tag_data["text_color"])
+                    # 테두리 색상이 있는 경우 설정
+                    if "border_color" in tag_data:
+                        tag_entry.border_color = tag_data["border_color"]
+                    # 스타일 콤보박스가 있는 경우 템플릿의 스타일로 설정
+                    if hasattr(tag_entry, 'style_combo'):
+                        style = tag_data.get("style", "기본")
+                        index = tag_entry.style_combo.findText(style)
+                        if index >= 0:
+                            tag_entry.style_combo.setCurrentIndex(index)
 
             # 메인 윈도우의 미리보기 업데이트
             self.main_window.update_preview()
@@ -885,7 +999,8 @@ class TextSettingsManager:
                     'convert_ellipsis': self.main_window.convert_ellipsis.isChecked(),
                     'use_text_size': self.main_window.use_text_size.isChecked(),
                     'text_size': self.main_window.text_size.value(),
-                    'use_text_indent': self.main_window.use_text_indent.isChecked()
+                    'use_text_indent': self.main_window.use_text_indent.isChecked(),
+                    'use_padding': self.main_window.use_padding.isChecked()  # 여백 설정 추가
                 }
                 self.settings[name] = current_settings
                 self.save_settings()
@@ -927,6 +1042,7 @@ class TextSettingsManager:
             self.main_window.use_text_size.setChecked(settings['use_text_size'])
             self.main_window.text_size.setValue(settings['text_size'])
             self.main_window.use_text_indent.setChecked(settings['use_text_indent'])
+            self.main_window.use_padding.setChecked(settings.get('use_padding', True))  # 여백 설정 로드
 
             # UI 상태 업데이트
             self.main_window.update_text_size_state()
@@ -1003,8 +1119,12 @@ class ProfileManager:
                 'profile_border_color': self.main_window.profile_border_color.get_color(),
                 'show_profile_border': self.main_window.show_profile_border.isChecked(),
                 'show_profile_shadow': self.main_window.show_profile_shadow.isChecked(),
-                'width': self.main_window.width_input.value(),
-                'height': self.main_window.height_input.value(),
+                # 크기 설정 저장 부분 수정
+                'size_settings': {
+                    'width': self.main_window.width_input.value(),
+                    'height': self.main_window.height_input.value(),
+                    'frame_style': self.main_window.frame_style.currentText()
+                },
                 'divider_style': self.main_window.divider_style.currentText(),
                 'divider_thickness': self.main_window.divider_thickness.value(),
                 'divider_outer_color': self.main_window.divider_outer_color.get_color(),
@@ -1029,7 +1149,7 @@ class ProfileManager:
                 
             with open(file_path, 'r', encoding='utf-8') as f:
                 profile_data = json.load(f)
-                
+
             # 기존 프로필 데이터 로드
             self.main_window.bot_name.setText(profile_data.get('bot_name', ''))
             self.main_window.bot_name_color.setColor(profile_data.get('bot_name_color', '#4a4a4a'))
@@ -1038,13 +1158,22 @@ class ProfileManager:
             self.main_window.show_bot_name.setChecked(profile_data.get('show_bot_name', True))
             self.main_window.show_tags.setChecked(profile_data.get('show_tags', True))
             self.main_window.show_divider.setChecked(profile_data.get('show_divider', True))
-            self.main_window.frame_style.setCurrentText(profile_data.get('frame_style', '동그라미'))
+            
+            # 프레임 스타일과 크기 설정 순서 변경
+            size_settings = profile_data.get('size_settings', {})
+            
+            # 먼저 프레임 스타일 설정
+            self.main_window.frame_style.setCurrentText(size_settings.get('frame_style', '동그라미'))
+            
+            # 그 다음 저장된 크기 값 설정
+            self.main_window.width_input.setValue(size_settings.get('width', 80))
+            self.main_window.height_input.setValue(size_settings.get('height', 80))
+            
+            # 나머지 설정들 로드
             self.main_window.image_url.setText(profile_data.get('image_url', ''))
             self.main_window.profile_border_color.setColor(profile_data.get('profile_border_color', '#ffffff'))
             self.main_window.show_profile_border.setChecked(profile_data.get('show_profile_border', True))
             self.main_window.show_profile_shadow.setChecked(profile_data.get('show_profile_shadow', True))
-            self.main_window.width_input.setValue(profile_data.get('width', 80))
-            self.main_window.height_input.setValue(profile_data.get('height', 80))
 
             # 구분선 설정 로드
             self.main_window.divider_style.setCurrentText(profile_data.get('divider_style', '그라데이션'))
@@ -1055,7 +1184,6 @@ class ProfileManager:
 
             # UI 상태 업데이트
             self.main_window.update_profile_element_states()
-            self.main_window.update_size_inputs(self.main_window.frame_style.currentText())
             self.main_window.update_profile_style_states()
             self.main_window.toggle_divider_color_settings(self.main_window.divider_style.currentText())
             self.main_window.update_preview()
@@ -1064,6 +1192,7 @@ class ProfileManager:
             
         except Exception as e:
             return False, f"프로필 불러오기 중 오류 발생: {str(e)}"
+
 
 
     def delete_profile_set(self, name):
@@ -1529,6 +1658,8 @@ class CharacterCardHandler:
         try:
             with open(file_path, 'rb') as f:
                 png_signature = f.read(8)
+                found_card_data = False
+                
                 while True:
                     try:
                         length_bytes = f.read(4)
@@ -1544,33 +1675,106 @@ class CharacterCardHandler:
                             keyword_data, text_data = chunk_data.split(b'\x00', 1)
                             keyword = keyword_data.decode('ascii')
                             
-                            if keyword in ['ccv3', 'chara']:
-                                try:
+                            try:
+                                # 캐릭터 데이터 처리
+                                if keyword in ['ccv3', 'chara']:
+                                    found_card_data = True
                                     chara_json_data = base64.b64decode(text_data).decode('utf-8')
                                     self.character_data = json.loads(chara_json_data)
                                     print(f"Character data loaded: {keyword}")
-                                except Exception as e:
-                                    print(f"Error decoding character data: {e}")
-                            else:
-                                try:
-                                    if '_' in keyword:  # 이미지 데이터를 포함하는 키워드인지 확인
-                                        asset_id = keyword.split(':')[-1] if ':' in keyword else '0'
-                                        img_key = f"chara-ext-asset_:{asset_id}"
-                                        png_data = base64.b64decode(text_data)
-                                        self.image_data[img_key] = png_data
-                                        print(f"Image data loaded: {img_key}, size: {len(png_data)} bytes")
-                                except Exception as e:
-                                    print(f"Error processing image data for {keyword}: {e}")
+                                    
+                                    # chara 형식 처리
+                                    if keyword == 'chara':
+                                        self.process_chara_format()
+                                    # ccv3 형식 처리
+                                    elif keyword == 'ccv3':
+                                        self._process_ccv3_assets()
+                                        
+                                # 이미지 데이터 처리    
+                                elif '_' in keyword:
+                                    try:
+                                        print(f"\nDebug - Processing image chunk:")
+                                        print(f"Keyword: {keyword}")
+                                        print(f"Text data start: {str(text_data[:100])}")  # base64 인코딩된 데이터의 시작 부분
+                                        # 이미지 키 생성
+                                        key = f"chara-ext-asset_{keyword}"
+                                        if ':' in keyword:
+                                            key = f"chara-ext-asset_:{keyword.split(':')[-1]}"
+                                        
+                                        # 이미지 데이터 저장
+                                        img_data = base64.b64decode(text_data)
+                                        self.image_data[key] = img_data
+                                        print(f"Image data loaded: {key}, size: {len(img_data)} bytes")
+                                        
+                                    except Exception as e:
+                                        print(f"Error processing image data for {keyword}: {e}")
+                                        
+                            except Exception as e:
+                                print(f"Error processing chunk data: {e}")
+                                
                     except Exception as e:
                         print(f"Error processing PNG chunk: {e}")
                         break
-        
-            # 데이터 처리 결과 출력
-            print(f"Total images found: {len(self.image_data)}")
-            self._process_assets()
-            return True
+
+                if not found_card_data:
+                    raise ValueError("No valid character card data found in PNG file")
+
+                print(f"\nExtraction completed:")
+                print(f"Total images found: {len(self.image_data)}")
+                print(f"Total mappings created: {len(self.image_uri_map)}")
+                
+                return True
+                
         except Exception as e:
-            print(f"Error reading PNG file: {e}")
+            print(f"Error reading PNG file: {str(e)}")
+            return False
+
+    def process_chara_format(self):
+        """chara 형식 캐릭터 카드 처리"""
+        try:
+            # 이미지 데이터가 있는지 확인
+            extensions = self.character_data.get("extensions", {})
+            risuai = extensions.get("risuai", {})
+            additional_assets = risuai.get("additionalAssets", [])
+            
+            print(f"\nProcessing chara format...")
+            print(f"Found {len(additional_assets)} assets")
+            
+            # 이미지 매핑 생성
+            for asset in additional_assets:
+                try:
+                    # asset은 [이름, URI, 타입] 형식
+                    asset_name, asset_uri, _ = asset
+                    
+                    # 확장자 제거
+                    asset_name = re.sub(r'\.(png|jpg|webp)$', '', asset_name, flags=re.I)
+                    
+                    # URI에서 숫자 추출 (예: "0", "1" 등)
+                    asset_number = asset_uri.split(':')[-1].strip()
+                    
+                    # 이미지 키 생성
+                    image_key = f"chara-ext-asset_{asset_number}"
+                    
+                    # 매핑 저장
+                    self.image_uri_map[asset_name] = image_key
+                    print(f"Created mapping: {asset_name} -> {image_key}")
+                    
+                except Exception as e:
+                    print(f"Error processing asset {asset}: {e}")
+                    continue
+            
+            print(f"\nProcessing completed:")
+            print(f"Successfully mapped: {len(self.image_uri_map)} assets")
+            
+            # 디버그 정보 출력
+            self.debug_print_asset_info()
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error in process_chara_format: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def _extract_from_json(self, file_path):
@@ -1589,7 +1793,7 @@ class CharacterCardHandler:
                 
                 # 에셋 정보 미리 수집
                 assets = self.character_data.get("data", {}).get("assets", [])
-                asset_names = {str(i): asset.get("name", f"asset_{i}") 
+                asset_names = {str(i+1): asset.get("name", f"asset_{i}") 
                             for i, asset in enumerate(assets)}
                 
                 print(f"\nFound asset mappings in card.json:")
@@ -1606,6 +1810,11 @@ class CharacterCardHandler:
                             
                             # card.json의 에셋 이름 사용
                             asset_name = asset_names.get(asset_num, f"asset_{asset_num}")
+                            if asset_name in self.image_uri_map:
+                                counter = 1
+                                while f"{asset_name}_{counter}" in self.image_uri_map:
+                                    counter += 1
+                                asset_name = f"{asset_name}_{counter}"
                             print(f"Processing asset file {file_info.filename} -> {asset_name}")
                             
                             # 이미지 데이터 읽기
@@ -1667,36 +1876,62 @@ class CharacterCardHandler:
             assets = self.character_data.get("data", {}).get("assets", [])
             print(f"Found {len(assets)} assets in character data")
             
-            # .charx 파일에서 로드된 경우 이미 매핑이 되어 있으므로 건너뜀
-            if not self.image_uri_map:
-                # 실제 이미지 데이터의 키 패턴 변경
-                for key in self.image_data.keys():
-                    if 'chara-ext-asset_' in key:
-                        # 숫자 추출
-                        num = key.split('_')[-1]
-                        if num.isdigit():
-                            idx = int(num) - 1  # 1-based to 0-based
-                            if idx < len(assets):
-                                asset = assets[idx]
-                                asset_name = asset.get("name", "").strip()
-                                if not asset_name:
-                                    asset_name = f"asset_{idx}"
-                                
-                                # 이미지 키를 원본 에셋 이름으로 매핑
-                                self.image_uri_map[asset_name] = key
-                                print(f"Successfully mapped: {asset_name} -> {key}")
-                
-                print(f"\nProcessing completed:")
-                print(f"Total assets found: {len(assets)}")
-                print(f"Successfully mapped: {len(self.image_uri_map)} assets")
+            # 이미지 데이터 키 정렬
+            image_keys = sorted(
+                [k for k in self.image_data.keys() if 'chara-ext-asset_' in k],
+                key=lambda x: int(x.split('_')[-1]) if x.split('_')[-1].isdigit() else 0
+            )
             
-            # 디버그 정보 출력
-            self.debug_print_asset_info()
+            print("\nFound image keys:")
+            for key in image_keys:
+                print(f"- {key}")
+            
+            # 매핑 초기화
+            self.image_uri_map.clear()
+            
+            # 유효한 에셋만 필터링 (iconx와 main 제외)
+            valid_assets = [
+                asset for asset in assets 
+                if asset.get("name") and 
+                asset.get("name").lower() not in ["iconx", "main"]
+            ]
+            
+            print("\nProcessing assets:")
+            for i, (asset, key) in enumerate(zip(valid_assets, image_keys), 1):
+                try:
+                    asset_name = asset.get("name", "").strip()
+                    if not asset_name:
+                        continue
+                        
+                    # .png 확장자 제거
+                    if asset_name.lower().endswith('.png'):
+                        asset_name = asset_name[:-4]
+                    
+                    # 매핑 저장
+                    self.image_uri_map[asset_name] = key
+                    print(f"Created mapping {i}: {asset_name} -> {key}")
+                    
+                except Exception as e:
+                    print(f"Error processing asset {i}: {e}")
+                    continue
+            
+            print(f"\nProcessing completed:")
+            print(f"Total valid assets found: {len(valid_assets)}")
+            print(f"Successfully mapped: {len(self.image_uri_map)} assets")
+            
+            # 매핑 검증
+            print("\nMapping verification:")
+            for asset_name, key in self.image_uri_map.items():
+                img_data = self.image_data.get(key)
+                if img_data:
+                    print(f"Verified: {asset_name} -> {key} ({len(img_data)} bytes)")
+                else:
+                    print(f"Warning: Missing data for {asset_name} -> {key}")
+            
             return True
-            
+        
         except Exception as e:
             print(f"Error in _process_ccv3_assets: {e}")
-            import traceback
             traceback.print_exc()
             return False
 
@@ -1727,84 +1962,38 @@ class CharacterCardHandler:
             print(f"Image URI map contains {len(self.image_uri_map)} entries")
             print(f"Image data contains {len(self.image_data)} entries")
             
-            # 디버깅을 위한 키 출력
-            print("\nAvailable image_data keys:")
-            for key in self.image_data.keys():
-                print(f"- {key}")
-                
-            print("\nImage URI map entries:")
-            for name, key in self.image_uri_map.items():
-                print(f"- {name} -> {key}")
+            # 저장 전 디렉토리 초기화
+            if os.path.exists(self.assets_folder):
+                shutil.rmtree(self.assets_folder)
+            os.makedirs(self.assets_folder, exist_ok=True)
             
+            # 매핑된 순서대로 저장
             for asset_name, asset_key in self.image_uri_map.items():
                 try:
-                    # 이미지 데이터가 있는지 확인
+                    # 이미지 데이터 가져오기
                     image_data = self.image_data.get(asset_key)
                     if image_data:
-                        file_path = os.path.join(self.assets_folder, f"{asset_name}.png")
+                        # .png 확장자 추가
+                        if not asset_name.lower().endswith('.png'):
+                            asset_name = f"{asset_name}.png"
+                            
+                        file_path = os.path.join(self.assets_folder, asset_name)
                         with open(file_path, 'wb') as img_file:
                             img_file.write(image_data)
                         saved_count += 1
-                        print(f"Saved asset: {asset_name}")
+                        print(f"Saved: {asset_name}")
                     else:
-                        print(f"Warning: No image data found for {asset_key}")
+                        print(f"Warning: No image data found for {asset_name} ({asset_key})")
+                        
                 except Exception as e:
                     print(f"Error saving asset {asset_name}: {e}")
+                    continue
             
             print(f"\nSuccessfully saved {saved_count} assets")
             return saved_count > 0
+            
         except Exception as e:
             print(f"Error in save_assets: {e}")
-            return False
-
-    def _extract_from_png(self, file_path):
-        """PNG 파일에서 데이터 추출"""
-        try:
-            with open(file_path, 'rb') as f:
-                png_signature = f.read(8)
-                while True:
-                    try:
-                        length_bytes = f.read(4)
-                        if len(length_bytes) != 4:
-                            break
-                        
-                        length = struct.unpack('>I', length_bytes)[0]
-                        chunk_type = f.read(4).decode('ascii')
-                        chunk_data = f.read(length)
-                        crc = f.read(4)
-                        
-                        if chunk_type == 'tEXt':
-                            keyword_data, text_data = chunk_data.split(b'\x00', 1)
-                            keyword = keyword_data.decode('ascii')
-                            
-                            if keyword in ['ccv3', 'chara']:
-                                try:
-                                    chara_json_data = base64.b64decode(text_data).decode('utf-8')
-                                    self.character_data = json.loads(chara_json_data)
-                                    print(f"Character data loaded: {keyword}")
-                                    # CCv3 데이터를 로드한 직후 바로 처리
-                                    if keyword == 'ccv3':
-                                        self._process_ccv3_assets()
-                                except Exception as e:
-                                    print(f"Error decoding character data: {e}")
-                            else:
-                                try:
-                                    png_data = base64.b64decode(text_data)
-                                    key = f"chara-ext-asset_:{keyword.split(':')[-1]}"
-                                    self.image_data[key] = png_data
-                                    print(f"Image data loaded: {key}, size: {len(png_data)} bytes")
-                                except Exception as e:
-                                    print(f"Error processing image data for {keyword}: {e}")
-                    except Exception as e:
-                        print(f"Error processing PNG chunk: {e}")
-                        break
-            
-            print(f"\nExtraction completed:")
-            print(f"Total images found: {len(self.image_data)}")
-            print(f"Total mappings created: {len(self.image_uri_map)}")
-            return True
-        except Exception as e:
-            print(f"Error reading PNG file: {e}")
             return False
 
     def cleanup(self):
@@ -1877,7 +2066,7 @@ class PresetManager:
             )
 
     def save_current_settings(self):
-        """현재 색상 설정을 프리셋으로 저장"""
+        """현재 설정을 프리셋으로 저장"""
         name, ok = QInputDialog.getText(
             self.main_window,
             '프리셋 저장',
@@ -1896,9 +2085,8 @@ class PresetManager:
                     return
 
             try:
-                # 색상 설정 수집 (새로운 설정 추가)
+                # 기존 색상 설정 수집
                 current_settings = {
-                    # 기존 설정
                     'outer_box_color': self.main_window.outer_box_color.get_color(),
                     'inner_box_color': self.main_window.inner_box_color.get_color(),
                     'bot_name_color': self.main_window.bot_name_color.get_color(),
@@ -1910,15 +2098,30 @@ class PresetManager:
                     'divider_solid_color': self.main_window.divider_solid_color.get_color(),
                     'image_border_color': self.main_window.image_border_color.get_color(),
                     'tag_colors': [color.get_color() for color in self.main_window.tag_colors],
-                    
-                    # 새로 추가된 설정
                     'inner_thoughts_color': self.main_window.inner_thoughts_color.get_color(),
                     'box_border_color': self.main_window.box_border_color.get_color(),
-                    
-                    # 관련 체크박스 상태도 저장
                     'inner_thoughts_bold': self.main_window.inner_thoughts_bold.isChecked(),
                     'use_box_border': self.main_window.use_box_border.isChecked(),
-                    'box_border_thickness': self.main_window.box_border_thickness.value()
+                    'box_border_thickness': self.main_window.box_border_thickness.value(),
+                    'show_inner_box': self.main_window.show_inner_box.isChecked(),
+                    
+                    # 프로필 설정 추가
+                    'profile_settings': {
+                        'show_profile': self.main_window.show_profile.isChecked(),
+                        'show_profile_image': self.main_window.show_profile_image.isChecked(),
+                        'show_bot_name': self.main_window.show_bot_name.isChecked(),
+                        'show_tags': self.main_window.show_tags.isChecked(),
+                        'show_divider': self.main_window.show_divider.isChecked(),
+                        'bot_name': self.main_window.bot_name.text(),
+                        'frame_style': self.main_window.frame_style.currentText(),
+                        'image_url': self.main_window.image_url.text(),
+                        'show_profile_border': self.main_window.show_profile_border.isChecked(),
+                        'show_profile_shadow': self.main_window.show_profile_shadow.isChecked(),
+                        'width': self.main_window.width_input.value(),
+                        'height': self.main_window.height_input.value(),
+                        'divider_style': self.main_window.divider_style.currentText(),
+                        'divider_thickness': self.main_window.divider_thickness.value()
+                    }
                 }
 
                 self.presets[name] = current_settings
@@ -1936,7 +2139,6 @@ class PresetManager:
                     f'프리셋 저장 중 오류가 발생했습니다: {str(e)}'
                 )
 
-
     def load_preset(self, name):
         """저장된 프리셋 불러오기"""
         try:
@@ -1950,7 +2152,7 @@ class PresetManager:
 
             settings = self.presets[name]
             
-            # 색상 설정 적용
+            # 기존 색상 설정 적용
             self.main_window.outer_box_color.setColor(settings['outer_box_color'])
             self.main_window.inner_box_color.setColor(settings['inner_box_color'])
             self.main_window.bot_name_color.setColor(settings['bot_name_color'])
@@ -1975,11 +2177,35 @@ class PresetManager:
                 self.main_window.use_box_border.setChecked(settings['use_box_border'])
             if 'box_border_thickness' in settings:
                 self.main_window.box_border_thickness.setValue(settings['box_border_thickness'])
+            if 'show_inner_box' in settings:
+                self.main_window.show_inner_box.setChecked(settings['show_inner_box'])
 
             # 태그 색상 적용
             for i, color in enumerate(settings['tag_colors']):
                 if i < len(self.main_window.tag_colors):
                     self.main_window.tag_colors[i].setColor(color)
+
+            # 프로필 설정 적용
+            if 'profile_settings' in settings:
+                profile = settings['profile_settings']
+                self.main_window.show_profile.setChecked(profile['show_profile'])
+                self.main_window.show_profile_image.setChecked(profile['show_profile_image'])
+                self.main_window.show_bot_name.setChecked(profile['show_bot_name'])
+                self.main_window.show_tags.setChecked(profile['show_tags'])
+                self.main_window.show_divider.setChecked(profile['show_divider'])
+                self.main_window.bot_name.setText(profile['bot_name'])
+                self.main_window.frame_style.setCurrentText(profile['frame_style'])
+                self.main_window.image_url.setText(profile['image_url'])
+                self.main_window.show_profile_border.setChecked(profile['show_profile_border'])
+                self.main_window.show_profile_shadow.setChecked(profile['show_profile_shadow'])
+                self.main_window.width_input.setValue(profile['width'])
+                self.main_window.height_input.setValue(profile['height'])
+                self.main_window.divider_style.setCurrentText(profile['divider_style'])
+                self.main_window.divider_thickness.setValue(profile['divider_thickness'])
+
+                # UI 상태 업데이트
+                self.main_window.update_profile_element_states()
+                self.main_window.update_profile_style_states()
 
             # UI 업데이트
             self.main_window.update_preview()
@@ -2003,14 +2229,35 @@ class PresetManager:
         """프리셋 삭제"""
         try:
             if name in self.presets:
-                del self.presets[name]
-                self.save_presets()
-                QMessageBox.information(
+                # 삭제 전 확인 대화상자 표시
+                reply = QMessageBox.question(
                     self.main_window,
-                    '삭제 완료',
-                    f'프리셋 "{name}"이(가) 삭제되었습니다.'
+                    '프리셋 삭제 확인',
+                    f'프리셋 "{name}"을(를) 정말 삭제하시겠습니까?\n\n'
+                    f'※ 주의: 삭제된 프리셋은 복구할 수 없습니다.',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No  # 기본값을 'No'로 설정
                 )
-                return True
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    # 사용자가 확인한 경우에만 삭제 진행
+                    del self.presets[name]
+                    self.save_presets()
+                    QMessageBox.information(
+                        self.main_window,
+                        '삭제 완료',
+                        f'프리셋 "{name}"이(가) 삭제되었습니다.'
+                    )
+                    return True
+                else:
+                    # 사용자가 취소한 경우
+                    QMessageBox.information(
+                        self.main_window,
+                        '삭제 취소',
+                        f'프리셋 "{name}"의 삭제가 취소되었습니다.'
+                    )
+                    return False
+                    
         except Exception as e:
             QMessageBox.warning(
                 self.main_window,
@@ -2241,7 +2488,7 @@ TEMPLATE_PRESETS = {
         "tag_colors": ["#edf2f7", "#e2e8f0", "#cbd5e0"],
         "tag_text_colors": ["#2d3748", "#2d3748", "#2d3748"]
     },
-    "모던 블루": {
+    "다크 모드 블루": {
         "outer_box_color": "#1a202c",
         "inner_box_color": "#2d3748",
         "background_color": "#2d3748",
@@ -2259,7 +2506,7 @@ TEMPLATE_PRESETS = {
         "tag_colors": ["#2c5282", "#2b6cb0", "#3182ce"],
         "tag_text_colors": ["#bee3f8", "#bee3f8", "#ffffff"]
     },
-    "다크 모드": {
+    "다크 모드 베이직": {
         "outer_box_color": "#000000",
         "inner_box_color": "#1a1a1a",
         "background_color": "#1a1a1a",
@@ -2385,7 +2632,7 @@ TEMPLATE_PRESETS = {
         "tag_colors": ["#e8d6cf", "#d6bcab", "#b08b6e"],
         "tag_text_colors": ["#7b341e", "#7b341e", "#ffffff"]
     },
-    "스페이스 그레이": {
+    "다크 모드 그레이": {
         "outer_box_color": "#1a1a1a",
         "inner_box_color": "#2d2d2d",
         "background_color": "#2d2d2d",
@@ -2403,23 +2650,137 @@ TEMPLATE_PRESETS = {
         "tag_colors": ["#404040", "#4a4a4a", "#525252"],
         "tag_text_colors": ["#e2e2e2", "#e2e2e2", "#ffffff"]
     },
-    "그라데이션 모던": {
-        "outer_box_color": "#fafafa",
-        "inner_box_color": "#fafafa",
-        "background_color": "#fafafa",
-        "bot_name_color": "#494949",
-        "dialog_color": "#494949",
-        "narration_color": "#666666",
-        "inner_thoughts_color": "#808080",
-        "profile_border_color": "#e3e3e3",
-        "box_border_color": "#e9e9e9",
-        "image_border_color": "#e3e3e3",
-        "divider_outer_color": "#e9e9e9",
-        "divider_inner_color": "#e9e9e9",
-        "gradient_start": "#D9D782",
-        "gradient_end": "#A9B9D9",
-        "tag_colors": ["#494949", "#494949", "#494949"],
-        "tag_text_colors": ["#d5d5d5", "#d5d5d5", "#d5d5d5"]
+        "다크 모드 민트": {
+        "name": "다크 모드 민트",
+        "theme": {
+            "colors": {
+                "outer_box": "#1a2420",
+                "inner_box": "#243330",
+                "background": "#243330",
+                "bot_name": "#4fd1c5",
+                "dialog": "#e2e8f0",
+                "narration": "#cbd5e0",
+                "inner_thoughts": "#718096",
+                "profile_border": "#2d4a44",
+                "box_border": "#2d4a44",
+                "image_border": "#2d4a44",
+                "divider_outer": "#2d4a44",
+                "divider_inner": "#1a2420",
+                "gradient_start": "#1a2420",
+                "gradient_end": "#2d4a44"
+            },
+            "tags": [
+                {"color": "#234e46", "text_color": "#4fd1c5", "border_color": "#2d4a44"},
+                {"color": "#2d4a44", "text_color": "#4fd1c5", "border_color": "#366d63"},
+                {"color": "#366d63", "text_color": "#e2e8f0", "border_color": "#3d7a6f"}
+            ]
+        }
+    },
+    "다크 모드 로즈": {
+        "name": "다크 모드 로즈",
+        "theme": {
+            "colors": {
+                "outer_box": "#201a1a",
+                "inner_box": "#332424",
+                "background": "#332424",
+                "bot_name": "#f687b3",
+                "dialog": "#e2e8f0",
+                "narration": "#cbd5e0",
+                "inner_thoughts": "#718096",
+                "profile_border": "#4a2d2d",
+                "box_border": "#4a2d2d",
+                "image_border": "#4a2d2d",
+                "divider_outer": "#4a2d2d",
+                "divider_inner": "#201a1a",
+                "gradient_start": "#201a1a",
+                "gradient_end": "#4a2d2d"
+            },
+            "tags": [
+                {"color": "#4e2323", "text_color": "#f687b3", "border_color": "#4a2d2d"},
+                {"color": "#4a2d2d", "text_color": "#f687b3", "border_color": "#663636"},
+                {"color": "#663636", "text_color": "#e2e8f0", "border_color": "#804040"}
+            ]
+        }
+    },
+    "다크 모드 퍼플": {
+        "name": "다크 모드 퍼플",
+        "theme": {
+            "colors": {
+                "outer_box": "#1a1a2c",
+                "inner_box": "#2d2d48",
+                "background": "#2d2d48",
+                "bot_name": "#b794f4",
+                "dialog": "#e2e8f0",
+                "narration": "#cbd5e0",
+                "inner_thoughts": "#718096",
+                "profile_border": "#4a4a68",
+                "box_border": "#4a4a68",
+                "image_border": "#4a4a68",
+                "divider_outer": "#4a4a68",
+                "divider_inner": "#1a1a2c",
+                "gradient_start": "#1a1a2c",
+                "gradient_end": "#2d2d48"
+            },
+            "tags": [
+                {"color": "#4a4a68", "text_color": "#b794f4", "border_color": "#6b46c1"},
+                {"color": "#6b46c1", "text_color": "#e2e8f0", "border_color": "#805ad5"},
+                {"color": "#805ad5", "text_color": "#ffffff", "border_color": "#9f7aea"}
+            ]
+        }
+    },
+
+    "다크 모드 브라운": {
+        "name": "다크 모드 브라운",
+        "theme": {
+            "colors": {
+                "outer_box": "#1a1814",
+                "inner_box": "#2d2420",
+                "background": "#2d2420",
+                "bot_name": "#ed8936",
+                "dialog": "#e2e8f0",
+                "narration": "#cbd5e0",
+                "inner_thoughts": "#718096",
+                "profile_border": "#4a3f2c",
+                "box_border": "#4a3f2c",
+                "image_border": "#4a3f2c",
+                "divider_outer": "#4a3f2c",
+                "divider_inner": "#1a1814",
+                "gradient_start": "#1a1814",
+                "gradient_end": "#2d2420"
+            },
+            "tags": [
+                {"color": "#4a3f2c", "text_color": "#ed8936", "border_color": "#7b5e3d"},
+                {"color": "#7b5e3d", "text_color": "#ed8936", "border_color": "#966251"},
+                {"color": "#966251", "text_color": "#ffffff", "border_color": "#b08b6e"}
+            ]
+        }
+    },
+
+    "다크 모드 오렌지": {
+        "name": "다크 모드 오렌지",
+        "theme": {
+            "colors": {
+                "outer_box": "#1a1410",
+                "inner_box": "#2d2016",
+                "background": "#2d2016",
+                "bot_name": "#fd7e14",
+                "dialog": "#e2e8f0",
+                "narration": "#cbd5e0",
+                "inner_thoughts": "#718096",
+                "profile_border": "#4a3828",
+                "box_border": "#4a3828",
+                "image_border": "#4a3828",
+                "divider_outer": "#4a3828",
+                "divider_inner": "#1a1410",
+                "gradient_start": "#1a1410",
+                "gradient_end": "#2d2016"
+            },
+            "tags": [
+                {"color": "#4a3828", "text_color": "#fd7e14", "border_color": "#7b5e3d"},
+                {"color": "#7b5e3d", "text_color": "#fd7e14", "border_color": "#c05621"},
+                {"color": "#c05621", "text_color": "#ffffff", "border_color": "#dd6b20"}
+            ]
+        }
     }
 }
 
@@ -2633,8 +2994,8 @@ class ModernSpinBox(QSpinBox):
         """마우스 휠 이벤트 무시"""
         event.ignore()
 
+
 class WordReplaceEntry(QWidget):
-    """단어 변경을 위한 입력 컴포넌트"""
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QHBoxLayout(self)
@@ -2659,6 +3020,12 @@ class WordReplaceEntry(QWidget):
         delete_btn.setFixedWidth(60)
         delete_btn.clicked.connect(self.remove_self)
         layout.addWidget(delete_btn)
+
+    def get_replacement_pair(self):
+        """변환 쌍 반환 - 공백 보존"""
+        from_word = self.from_word.text()
+        to_word = self.to_word.text()  # strip() 제거
+        return from_word, to_word
 
     def remove_self(self):
         """안전하게 자신을 제거"""
@@ -3307,39 +3674,6 @@ class ModernLogGenerator(QMainWindow):
             
         except Exception as e:
             print(f"Preview timer setup error: {str(e)}")
-
-
-    def generate_html(self):
-        try:
-            # 현재 템플릿이 그라데이션 모던인지 확인
-            template_name = self.template_combo.currentText()
-            is_gradient = template_name == "그라데이션 모던"
-            
-            # 그라데이션 스타일 설정
-            gradient_style = ""
-            if is_gradient:
-                gradient_style = f"""
-                    background: linear-gradient(135deg, 
-                        {self.gradient_start}, 
-                        {self.gradient_end}
-                    );
-                """
-            
-            # HTML 생성
-            html = f"""
-            <div class="chat-container" style="{gradient_style}">
-                <!-- 기존 HTML 내용 -->
-                {self.generate_profile_html() if self.show_profile.isChecked() else ''}
-                {self.generate_content_html()}
-            </div>
-            """
-            
-            return html
-            
-        except Exception as e:
-            print(f"HTML 생성 중 오류 발생: {str(e)}")
-            return ""
-
  
 
     def animate_widget(self, widget):
@@ -3543,18 +3877,33 @@ class ModernLogGenerator(QMainWindow):
             button_layout.addStretch()
             group.addWidget(button_container)
 
-            # 템플릿 선택
+            # 기존 템플릿 콤보박스
             template_container = QWidget()
             template_layout = QHBoxLayout(template_container)
             template_layout.setContentsMargins(0, 0, 0, STYLES['spacing_normal'])
             
             template_layout.addWidget(QLabel("템플릿"))
             self.template_combo = ModernComboBox()
-            self.template_combo.addItems(self.template_manager.get_template_names())
+            self.template_combo.addItems([t for t in self.template_manager.get_template_names() 
+                                        if not t.startswith("다크 모드")])
             self.template_combo.currentTextChanged.connect(self.template_manager.apply_template)
             template_layout.addWidget(self.template_combo)
             
             group.addWidget(template_container)
+
+            # 다크모드 템플릿 콤보박스 추가
+            dark_template_container = QWidget()
+            dark_template_layout = QHBoxLayout(dark_template_container)
+            dark_template_layout.setContentsMargins(0, 0, 0, STYLES['spacing_normal'])
+            
+            dark_template_layout.addWidget(QLabel("다크 모드 템플릿"))
+            self.dark_template_combo = ModernComboBox()
+            self.dark_template_combo.addItems(["선택하세요"] + [t for t in self.template_manager.get_template_names() 
+                                            if t.startswith("다크 모드")])
+            self.dark_template_combo.currentTextChanged.connect(self.on_dark_template_changed)
+            dark_template_layout.addWidget(self.dark_template_combo)
+            
+            group.addWidget(dark_template_container)
 
             # 외부 박스 설정
             box_layout = QHBoxLayout()
@@ -3662,6 +4011,12 @@ class ModernLogGenerator(QMainWindow):
             self.update_border_settings(self.use_box_border.isChecked())
 
             return group
+
+    def on_dark_template_changed(self, template_name):
+        """다크모드 템플릿 선택 시 처리"""
+        if template_name != "선택하세요":
+            self.template_combo.setCurrentText("커스텀")  # 라이트모드 콤보박스 초기화
+            self.template_manager.apply_template(template_name)
 
     def update_border_settings(self, enabled):
         """테두리 설정 상태 업데이트"""
@@ -4041,7 +4396,7 @@ class ModernLogGenerator(QMainWindow):
             self.size_label.setText("크기")
             self.size_label.show()
             self.width_input.show()
-            self.width_input.setValue(80)
+            self.width_input.setValue(100)
             self.width_input.setEnabled(True)
             self.height_label.hide()
             self.height_input.hide()
@@ -4053,18 +4408,18 @@ class ModernLogGenerator(QMainWindow):
             self.width_input.hide()
             self.height_label.hide()
             self.height_input.hide()
-            size_info = "※ 권장 이미지: 1200x400px (3:1 비율)"
+            size_info = "※ 권장 이미지: 아무거나 때려박아도 OK"
             
         else:  # 직사각형
             self.size_label.setText("크기")
             self.size_label.show()
             self.width_input.show()
-            self.width_input.setValue(120)
+            self.width_input.setValue(200)
             self.width_input.setEnabled(True)
             self.height_label.show()
             self.height_input.show()
-            self.height_input.setValue(80)
-            size_info = "※ 크기 제한: 20~300px\n권장 이미지: 300x200px (3:2 비율)"
+            self.height_input.setValue(300)
+            size_info = "※ 크기 제한: 20~300px\n권장 이미지: 200x300px (2:3 비율)"
         
         # 권장 사이즈 정보를 보여주는 레이블 스타일 설정
         self.size_info_label.setText(size_info)
@@ -4165,11 +4520,35 @@ class ModernLogGenerator(QMainWindow):
         return group
 
     def add_new_tag(self, tag_data=None):
-        """새 태그 추가 (초기 데이터 지원)"""
+        """새 태그 추가"""
         entry = TagEntry(self.tag_container)
+        
         if tag_data:
+            # 기존 태그 데이터가 있는 경우 해당 데이터로 설정
             entry.load_style_dict(tag_data)
-        self.tag_layout.addWidget(entry)  # 레이아웃에 위젯 추가
+        else:
+            # 새로운 태그의 경우 기본 다크 스타일 적용
+            default_style = {
+                'text': '',  # 빈 텍스트
+                'color': '#1a1a1a',  # 진한 검정 배경
+                'text_color': '#ffffff',  # 흰색 텍스트
+                'style': '기본',  # 기본 스타일
+                'border_radius': 20,
+                'font_size': 0.85,
+                'padding': {
+                    "top": 0.2,
+                    "right": 0.8,
+                    "bottom": 0.2,
+                    "left": 0.8
+                }
+            }
+            entry.load_style_dict(default_style)
+            
+            # 색상 버튼 업데이트
+            entry.color_btn.setColor(default_style['color'])
+            entry.text_color_btn.setColor(default_style['text_color'])
+        
+        self.tag_layout.addWidget(entry)
         self.tag_container.update()  # 레이아웃 갱신
 
 
@@ -4422,6 +4801,17 @@ class ModernLogGenerator(QMainWindow):
         
         group.addWidget(narration_settings)
         
+        # 여백 설정 추가 (전처리 옵션 위에 추가)
+        padding_layout = QVBoxLayout()
+        self.use_padding = ModernCheckBox("위 아래 여백")
+        self.use_padding.setChecked(True)  # 기본값 ON
+        padding_layout.addWidget(self.use_padding)
+        
+        # 여백 설정 변경 시 미리보기 업데이트
+        self.use_padding.stateChanged.connect(self.update_preview)
+        
+        group.addLayout(padding_layout)
+
         # 전처리 옵션
         preprocess_layout = QVBoxLayout()
         self.remove_asterisk = ModernCheckBox("에스터리스크(*) 제거")
@@ -5351,366 +5741,186 @@ class ModernLogGenerator(QMainWindow):
         """템플릿 HTML 생성"""
         try:
             template_name = self.template_combo.currentText()
+            padding_html = '<p><br></p>' if self.use_padding.isChecked() else ''
             
-            # 그라데이션 모던 템플릿 처리
-            if template_name == "그라데이션 모던":
-                # 기본 색상 설정
-                colors = {
-                    "outer_box": "#fafafa",
-                    "profile_border": "#e3e3e3",
-                    "gradient_start": "#D9D782",
-                    "gradient_end": "#A9B9D9",
-                    "divider_outer": "#e9e9e9",
-                    "bot_name": "#ededed",
-                    "narration": "#494949",
-                    "tag_bg": "#494949",
-                    "tag_text": "#d5d5d5"
-                }
-                
-                # 봇 이름 섹션 생성
-                bot_name_html = ""
-                if self.show_bot_name.isChecked():
-                    # 사용자가 입력한 봇 이름 사용, 없으면 기본값
-                    bot_name = self.bot_name.text().strip() or "봇이름"
-                    bot_name_html = f'''
-                        <div style="background:linear-gradient(135deg,{colors['gradient_start']},{colors['gradient_end']});
-                                    background-size:110%;
-                                    background-position:center;
-                                    border-radius:20px;
-                                    padding:10px;
-                                    line-height:10px;
-                                    border:solid 10px {colors['divider_outer']};
-                                    text-transform:uppercase;
-                                    letter-spacing:1px;
-                                    box-shadow:inset 0px 40px 0px rgba(30,30,30,.1);
-                                    display:flex;
-                                    width: fit-content;
-                                    max-width: 200px;
-                                    float: left;
-                                    margin-left: 50px;
-                                    margin-top: 5px;">
-                            <span style="text-decoration:none;
-                                    color:{colors['bot_name']};
-                                    font-weight:bold;
-                                    text-shadow:0px 0px 5px rgba(30,30,30,.1)">
-                                {bot_name}
-                            </span>
-                        </div>'''
+            # 박스 색상
+            box_outer_color = self.outer_box_color.get_color()
+            box_inner_color = self.inner_box_color.get_color()
+            shadow_value = self.shadow_intensity.value()
+            
+            # 테두리 설정
+            border_style = ""
+            if self.use_box_border.isChecked():
+                border_color = self.box_border_color.get_color()
+                border_thickness = self.box_border_thickness.value()
+                border_style = f"border: {border_thickness}px solid {border_color};"
+        
+            if self.show_inner_box.isChecked():
+                # 내부 박스가 있을 때
+                background_color = box_outer_color
+                inner_box_style = f"""
+                    font-size:{STYLES['font_size_normal']}px;
+                    background:{box_inner_color};
+                    padding:{STYLES['spacing_large']}px;
+                    border-radius:{STYLES['radius_normal']}px;"""
+            else:
+                # 내부 박스가 없을 때
+                background_color = box_inner_color
+                inner_box_style = f"""
+                    font-size:{STYLES['font_size_normal']}px;
+                    padding:0;"""
 
-                # 태그 섹션 생성 - return 전으로 이동
-                tags_html = ""
-                if self.show_tags.isChecked():
-                    tags = []
-                    for i in range(self.tag_layout.count()):
-                        widget = self.tag_layout.itemAt(i).widget()
-                        if hasattr(widget, 'tag_input'):
-                            tag_text = widget.tag_input.text() or f"태그 {i+1}"
-                            tags.append(tag_text)
+            # 프로필 영역 HTML 생성
+            profile_section_html = ''
+            if self.show_profile.isChecked():
+                try:
+                    profile_parts = []
                     
-                    if tags:
-                        tags_html = f'''
-                            <div style="margin-top: 15px;
-                                        float: right;
-                                        width: fit-content;
-                                        background-color:{colors['tag_bg']};
-                                        border-radius:5px 0px 0px 5px;
-                                        padding:10px;
-                                        line-height:10px;
-                                        letter-spacing:2px;
-                                        text-transform:uppercase;
-                                        color:{colors['tag_text']};
-                                        font-size:10px">
-                                {' | '.join(tags)}
-                            </div>'''
-
-                # 프로필 이미지 섹션 생성
-                profile_image_html = ""
-                if self.show_profile.isChecked() and self.show_profile_image.isChecked():
-                    image_url = self.process_image_url(self.image_url.text())
-                    width = self.width_input.value()
-                    height = self.height_input.value()
-                    frame_style = self.frame_style.currentText()
-                    
-                    # 기본 이미지 스타일 설정
-                    common_style = f"""
-                        max-width: 100%;
-                        display: block;
-                        margin: 0 auto;
-                        box-shadow: 0px 10px 30px rgba(0,0,0,0.1);
-                        border: 3px solid {colors['profile_border']};
-                    """
-                    
-                    # 프레임 스타일별 특수 스타일 적용
-                    if frame_style == "배너":
-                        image_style = f"""
-                            {common_style}
-                            width: 100%;
-                            height: auto;
-                            border-radius: 15px;
-                            object-fit: cover;
-                        """
-                        container_style = "width: 100%; padding: 0 20px;"
-                    elif frame_style == "동그라미":
-                        image_style = f"""
-                            {common_style}
-                            width: {width}px;
-                            height: {width}px;
-                            border-radius: 50%;
-                            object-fit: cover;
-                        """
-                        container_style = "width: auto;"
-                    else:  # 직사각형
-                        image_style = f"""
-                            {common_style}
-                            width: {width}px;
-                            height: {height}px;
-                            border-radius: 10px;
-                            object-fit: cover;
-                        """
-                        container_style = "width: auto;"
-                    
-                    profile_image_html = f'''
-                        <div style="text-align: center; 
-                                    clear: both; 
-                                    {container_style}
-                                    padding-top: 40px;
-                                    padding-bottom: 20px;">
-                            <img style="{image_style}" 
+                    # 프로필 이미지
+                    if self.show_profile_image.isChecked():
+                        profile_border_color = self.profile_border_color.get_color()
+                        width = self.width_input.value()
+                        height = self.height_input.value()
+                        image_url = self.process_image_url(self.image_url.text())
+                        
+                        # 기본 이미지 스타일 설정
+                        common_style = f'''
+                            max-width:100%;
+                            {f'box-shadow:rgba(0,0,0,0.12) 0px 4px 16px;' if self.show_profile_shadow.isChecked() else ''}
+                            {f'border:3px solid {profile_border_color};' if self.show_profile_border.isChecked() else ''}
+                        '''
+                        
+                        if self.frame_style.currentText() == "배너":
+                            profile_style = f"{common_style} border-radius:12px;"
+                            container_style = "width:100%;"
+                        elif self.frame_style.currentText() == "동그라미":
+                            profile_style = f"{common_style} width:{width}px; height:{width}px; border-radius:50%; object-fit:cover;"
+                            container_style = "width:auto;"
+                        else:  # 직사각형
+                            profile_style = f"{common_style} width:{width}px; height:{height}px; border-radius:8px; object-fit:cover;"
+                            container_style = "width:auto;"
+                        
+                        profile_html = f'''
+                        <div style="margin-bottom:1rem; text-align:center; {container_style}">
+                            <img style="{profile_style}" 
                                 src="{image_url}" 
                                 alt="profile" 
                                 class="fr-fic fr-dii">
                         </div>
-                    '''
+                        '''
+                        profile_parts.append(profile_html)
+                    
+                    # 봇 이름
+                    if self.show_bot_name.isChecked():
+                        bot_name = self.bot_name.text() or "봇 이름"
+                        bot_name_color = self.bot_name_color.get_color()
+                        bot_name_html = f'''
+                            <h3 style="color:{bot_name_color};font-weight:{STYLES['font_weight_bold']};">{bot_name}</h3>
+                        '''
+                        profile_parts.append(bot_name_html)
 
-                # 최종 템플릿 반환 (한 번만)
-                return f'''<p><br></p>
-                    <div style="border:solid 2px {colors['profile_border']};
-                                background-color:{colors['outer_box']};
-                                border-radius:20px;
-                                position:relative;
-                                max-width:500px;
-                                margin:0px auto;">
+                    # 태그 처리
+                    if self.show_tags.isChecked():
+                        tags_html = []
+                        for i in range(self.tag_layout.count()):
+                            widget = self.tag_layout.itemAt(i).widget()
+                            if isinstance(widget, TagEntry):
+                                style_dict = widget.get_style_dict()
+                                tag_text = style_dict['text'] or f"태그 {i+1}"
+                                
+                                css_styles = [
+                                    "display:inline-block",
+                                    f"border-radius:{style_dict['border_radius']}px",
+                                    f"font-size:{style_dict['font_size']}rem",
+                                    f"padding:{style_dict['padding']['top']}rem {style_dict['padding']['right']}rem "
+                                    f"{style_dict['padding']['bottom']}rem {style_dict['padding']['left']}rem",
+                                    f"color:{style_dict['text_color']}",
+                                    "margin:0.15rem 0.2rem",
+                                    "white-space:nowrap"
+                                ]
+                                
+                                if style_dict['style'] == "투명 배경":
+                                    css_styles.extend([
+                                        f"background:transparent",
+                                        f"border:1px solid {style_dict['color']}"
+                                    ])
+                                elif style_dict['style'] == "그라데이션":
+                                    base_color = QColor(style_dict['color'])
+                                    light_color = base_color.lighter(120).name()
+                                    dark_color = base_color.darker(120).name()
+                                    css_styles.extend([
+                                        f"background:linear-gradient(135deg, {light_color}, {dark_color})",
+                                        "border:none"
+                                    ])
+                                else:
+                                    css_styles.extend([
+                                        f"background:{style_dict['color']}",
+                                        "border:none"
+                                    ])
+                                
+                                tag_html = f'''
+                                    <span style="{';'.join(css_styles)}">{tag_text}</span>
+                                '''
+                                tags_html.append(tag_html)
                         
-                        <div style="height: 85px;margin:-1px -1px 0px -1px">
-                            <div style="background:linear-gradient(-45deg,{colors['gradient_start']},{colors['gradient_end']});
-                                        background-size:200%;
-                                        height:70px;
-                                        border-radius:19px 19px 0px 0px">
-                                <div style="height:70px;width:100%;border-radius:19px 19px 0px 0px">
+                        if tags_html:
+                            tags_container = f'''
+                                <div style="text-align:center;margin:0 auto;max-width:fit-content;">
+                                    {''.join(tags_html)}
                                 </div>
+                            '''
+                            profile_parts.append(tags_container)
+                    
+                    # 구분선
+                    if self.show_divider.isChecked():
+                        thickness = self.divider_thickness.value()
+                        if self.divider_style.currentText() == "그라데이션":
+                            divider_outer_color = self.divider_outer_color.get_color()
+                            divider_inner_color = self.divider_inner_color.get_color()
+                            divider_style = f"background:linear-gradient(to right,{divider_outer_color} 0%,{divider_inner_color} 50%,{divider_outer_color} 100%);"
+                        else:
+                            solid_color = self.divider_solid_color.get_color()
+                            divider_style = f"background:{solid_color};"
+
+                        divider_html = f'''
+                            <div style="height:{thickness}px;{divider_style}margin:1rem 0;border-radius:{thickness/2}px;">
+                                <br>
                             </div>
-                        </div>
-                        
-                        {bot_name_html}
-                        {profile_image_html}
-                        {tags_html}
-                        
-                        
-                        <div style="padding: 40px 60px 30px 60px;
-                                    line-height:22px;
-                                    letter-spacing:.35px;
-                                    clear: both;">
+                        '''
+                        profile_parts.append(divider_html)
+                    
+                    # 전체 프로필 섹션 조합
+                    if profile_parts:
+                        profile_section_html = f'''
+                            <div style="display:flex;flex-direction:column;text-align:center;margin-bottom:1.25rem;">
+                                {''.join(profile_parts)}
+                            </div>
+                        '''
+                
+                except Exception as e:
+                    print(f"Error in profile creation: {str(e)}")
+            
+            # 최종 템플릿 반환
+            return f'''{padding_html}
+                <div style="font-family:{STYLES['font_family']};
+                            color:{STYLES['text']};
+                            line-height:1.8;
+                            width:100%;
+                            max-width:600px;
+                            margin:1rem auto;
+                            background:{background_color};
+                            border-radius:{STYLES['radius_large']}px;
+                            box-shadow:0px {shadow_value}px {shadow_value * 2}px rgba(0,0,0,0.2);
+                            {border_style}">
+                    <div style="padding:{STYLES['spacing_large']}px;">
+                        <div style="{inner_box_style}">
+                            {profile_section_html}
                             {content}
                         </div>
                     </div>
-                    <p><br></p>'''
-        
-            else:
-                # 박스 색상
-                box_outer_color = self.outer_box_color.get_color()
-                box_inner_color = self.inner_box_color.get_color()
-                shadow_value = self.shadow_intensity.value()
+                </div>
+                {padding_html}'''
                 
-                # 테두리 설정
-                border_style = ""
-                if self.use_box_border.isChecked():
-                    border_color = self.box_border_color.get_color()
-                    border_thickness = self.box_border_thickness.value()
-                    border_style = f"border: {border_thickness}px solid {border_color};"
-            
-                if self.show_inner_box.isChecked():
-                    # 내부 박스가 있을 때
-                    background_color = box_outer_color
-                    inner_box_style = f"""
-                        font-size:{STYLES['font_size_normal']}px;
-                        background:{box_inner_color};
-                        padding:{STYLES['spacing_large']}px;
-                        border-radius:{STYLES['radius_normal']}px;"""
-                else:
-                    # 내부 박스가 없을 때
-                    background_color = box_inner_color
-                    inner_box_style = f"""
-                        font-size:{STYLES['font_size_normal']}px;
-                        padding:0;"""
-
-                # 프로필 영역 HTML 생성
-                profile_section_html = ''
-                if self.show_profile.isChecked():
-                    try:
-                        profile_parts = []
-                        
-                        # 프로필 이미지
-                        if self.show_profile_image.isChecked():
-                            profile_border_color = self.profile_border_color.get_color()
-                            width = self.width_input.value()
-                            height = self.height_input.value()
-                            image_url = self.process_image_url(self.image_url.text())
-                            
-                            # 기본 이미지 스타일 설정
-                            common_style = f'''
-                                max-width:100%;
-                                {f'box-shadow:rgba(0,0,0,0.12) 0px 4px 16px;' if self.show_profile_shadow.isChecked() else ''}
-                                {f'border:3px solid {profile_border_color};' if self.show_profile_border.isChecked() else ''}
-                            '''
-                            
-                            if self.frame_style.currentText() == "배너":
-                                profile_style = f"{common_style} border-radius:12px;"
-                                container_style = "width:100%;"
-                            elif self.frame_style.currentText() == "동그라미":
-                                profile_style = f"{common_style} width:{width}px; height:{width}px; border-radius:50%; object-fit:cover;"
-                                container_style = "width:auto;"
-                            else:  # 직사각형
-                                profile_style = f"{common_style} width:{width}px; height:{height}px; border-radius:8px; object-fit:cover;"
-                                container_style = "width:auto;"
-                            
-                            profile_html = f'''
-                            <div style="margin-bottom:1rem; text-align:center; {container_style}">
-                                <img style="{profile_style}" 
-                                    src="{image_url}" 
-                                    alt="profile" 
-                                    class="fr-fic fr-dii">
-                            </div>
-                            '''
-                            profile_parts.append(profile_html)
-                        
-                        # 봇 이름
-                        if self.show_bot_name.isChecked():
-                            bot_name = self.bot_name.text() or "봇 이름"
-                            bot_name_color = self.bot_name_color.get_color()
-                            bot_name_html = f'''
-                                <h3 style="color:{bot_name_color};font-weight:{STYLES['font_weight_bold']};">{bot_name}</h3>
-                            '''
-                            profile_parts.append(bot_name_html)
-
-                        # 태그 처리
-                        if self.show_tags.isChecked():
-                            tags_html = []
-                            for i in range(self.tag_layout.count()):
-                                widget = self.tag_layout.itemAt(i).widget()
-                                if isinstance(widget, TagEntry):
-                                    style_dict = widget.get_style_dict()
-                                    tag_text = style_dict['text'] or f"태그 {i+1}"
-                                    
-                                    # 기본 CSS 스타일에 여백 추가
-                                    css_styles = [
-                                        "display:inline-block",
-                                        f"border-radius:{style_dict['border_radius']}px",
-                                        f"font-size:{style_dict['font_size']}rem",
-                                        f"padding:{style_dict['padding']['top']}rem {style_dict['padding']['right']}rem "
-                                        f"{style_dict['padding']['bottom']}rem {style_dict['padding']['left']}rem",
-                                        f"color:{style_dict['text_color']}",
-                                        "margin:0.15rem 0.2rem",  # 상하 0.25rem, 좌우 0.5rem 여백 추가
-                                        "white-space:nowrap"      # 태그 텍스트 줄바꿈 방지
-                                    ]
-                                    
-                                    if style_dict['style'] == "투명 배경":
-                                        css_styles.extend([
-                                            f"background:transparent",
-                                            f"border:1px solid {style_dict['color']}"
-                                        ])
-                                    elif style_dict['style'] == "그라데이션":
-                                        base_color = QColor(style_dict['color'])
-                                        light_color = base_color.lighter(120).name()
-                                        dark_color = base_color.darker(120).name()
-                                        css_styles.extend([
-                                            f"background:linear-gradient(135deg, {light_color}, {dark_color})",
-                                            "border:none"
-                                        ])
-                                    else:
-                                        css_styles.extend([
-                                            f"background:{style_dict['color']}",
-                                            "border:none"
-                                        ])
-                                    
-                                    tag_html = f'''
-                                        <span style="{';'.join(css_styles)}">{tag_text}</span>
-                                    '''
-                                    tags_html.append(tag_html)
-                            
-                            if tags_html:
-                                # 태그 컨테이너 스타일 개선
-                                container_styles = [
-                                    "text-align:center",
-                                    "margin:0.2rem auto",    # 상하 여백 추가
-                                    "width:100%",            # 전체 너비 사용
-                                    "display:flex",          # Flexbox 사용
-                                    "flex-wrap:wrap",        # 태그 자동 줄바꿈
-                                    "justify-content:center", # 가운데 정렬
-                                    "align-items:center",    # 세로 가운데 정렬
-                                    "gap:0.5rem"            # 태그 사이 간격
-                                ]
-                                
-                                tags_container = f'''
-                                    <div style="{';'.join(container_styles)}">
-                                        {''.join(tags_html)}
-                                    </div>
-                                '''
-                                
-                                # 프로필 섹션에 태그 컨테이너 추가
-                                profile_parts.append(tags_container)
-                        
-                        # 구분선
-                        if self.show_divider.isChecked():
-                            thickness = self.divider_thickness.value()
-                            if self.divider_style.currentText() == "그라데이션":
-                                divider_outer_color = self.divider_outer_color.get_color()
-                                divider_inner_color = self.divider_inner_color.get_color()
-                                divider_style = f"background:linear-gradient(to right,{divider_outer_color} 0%,{divider_inner_color} 50%,{divider_outer_color} 100%);"
-                            else:
-                                solid_color = self.divider_solid_color.get_color()
-                                divider_style = f"background:{solid_color};"
-
-                            divider_html = f'''
-                                <div style="height:{thickness}px;{divider_style}margin:1rem 0;border-radius:{thickness/2}px;">
-                                    <br>
-                                </div>
-                            '''
-                            profile_parts.append(divider_html)
-                        
-                        # 전체 프로필 섹션 조합
-                        if profile_parts:
-                            profile_section_html = f'''
-                                <div style="display:flex;flex-direction:column;text-align:center;margin-bottom:1.25rem;">
-                                    {''.join(profile_parts)}
-                                </div>
-                            '''
-                    
-                    except Exception as e:
-                        print(f"Error in profile creation: {str(e)}")
-                
-                # 기존 템플릿 반환
-                return f'''<p><br></p>
-                    <p><br></p>
-                    <div style="font-family:{STYLES['font_family']};
-                                color:{STYLES['text']};
-                                line-height:1.8;
-                                width:100%;
-                                max-width:600px;
-                                margin:1rem auto;
-                                background:{background_color};
-                                border-radius:{STYLES['radius_large']}px;
-                                box-shadow:0px {shadow_value}px {shadow_value * 2}px rgba(0,0,0,0.2);
-                                {border_style}">
-                        <div style="padding:{STYLES['spacing_large']}px;">
-                            <div style="{inner_box_style}">
-                                {profile_section_html}
-                                {content}
-                            </div>
-                        </div>
-                    </div>
-                    <p><br></p>
-                    <p><br></p>'''
-                    
         except Exception as e:
             print(f"Error in template creation: {str(e)}")
             return f"<div>{content}</div>"
@@ -5728,10 +5938,10 @@ class ModernLogGenerator(QMainWindow):
             
             # 단어 변경
             for entry in self.word_replace_container.findChildren(WordReplaceEntry):
-                from_word = entry.from_word.text()
-                to_word = entry.to_word.text()
-                if from_word and to_word:
-                    content = content.replace(from_word, to_word)
+                from_word, to_word = entry.get_replacement_pair()
+                if from_word:  # 변환할 단어가 있으면
+                    # 변환될 단어가 비어있으면 삭제, 아니면 변환
+                    content = content.replace(from_word, to_word if to_word is not None else '')
 
             # 에스터리스크 제거
             if self.remove_asterisk.isChecked():
